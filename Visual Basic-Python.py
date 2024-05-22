@@ -1,14 +1,8 @@
-# % = integer
-# Single precision floating = As single
 import sys
+import time
+import serial  # For serial communication
 from PyQt5.QtWidgets import QApplication, QMainWindow, QLabel, QPushButton, QVBoxLayout, QWidget, QLineEdit, QCheckBox, QMessageBox
 from PyQt5.QtCore import QTimer
-import ctypes
-import time
-import re
-
-# Import the AvaSpec functions (assuming the provided AvaSpec code is in a module named avaspec)
-import avaspec
 
 class MainWindow(QMainWindow):
     def __init__(self):
@@ -16,15 +10,9 @@ class MainWindow(QMainWindow):
 
         self.initUI()
 
-        self.Gen_id = 0
-        self.dev_Osc = ""
-        self.Command = ""
-        self.param = ""
-        self.Out_File = ""
-        self.Out_Data = ""
+        self.Gen_id = None
         self.Volt_List = ""
         self.Temp_List = ""
-        self.ReadBuffer = ""
         self.Frequency = [0] * 300
         self.Voltage = [0] * 300
         self.Temperature = [0] * 5000
@@ -51,6 +39,7 @@ class MainWindow(QMainWindow):
         self.ASV = False
         self.Expire = False
         self.DCmode = False
+        self.serial_port = None
 
     def initUI(self):
         self.setWindowTitle("AvaSpec Control")
@@ -106,10 +95,10 @@ class MainWindow(QMainWindow):
         container.setLayout(layout)
         self.setCentralWidget(container)
 
-        self.button1.clicked.connect(self.on_start)
-        self.button2.clicked.connect(self.on_stop)
+        self.button1.clicked.connect(self.Command1_Click)
+        self.button2.clicked.connect(self.Command2_Click)
 
-    def on_start(self):
+    def Command1_Click(self):
         self.label.setText("Status: Running")
         self.button1.setEnabled(False)
         self.button2.setEnabled(True)
@@ -120,7 +109,7 @@ class MainWindow(QMainWindow):
         self.Init_Gen()
 
         self.Freq = float(self.text13.text())
-        self.SendCommand("APPL:SQU " + str(self.Freq))
+        self.SendCommand(f"APPL:SQU {self.Freq}")
 
         self.Set_Amplitude(self.Vmax)
         self.DCmode = False
@@ -129,12 +118,12 @@ class MainWindow(QMainWindow):
         basename = self.text8.text()
         foldname = fold + basename
 
-        self.TemRes = 100
         it = 1
+        self.TemRes = 100
 
         while self.Temperature[it] != 999:
             self.SetT = self.Temperature[it]
-            t_name = foldname + "T" + str(int(self.Temperature[it] * self.TemRes + 1 / self.TemRes))
+            t_name = foldname + f"T{int(self.Temperature[it] * self.TemRes + 1 / self.TemRes)}"
             self.Out_Data = t_name + ".dat"
             self.Set_Temp(self.SetT)
 
@@ -153,7 +142,7 @@ class MainWindow(QMainWindow):
                 time.sleep(1)
                 self.text15.setText("V circle")
                 time.sleep(self.WaitV / 1000.0)
-                self.SaveSpec("T" + str(self.SetT) + "V" + str(self.Voltage[iv]))
+                self.SaveSpec(f"T{self.SetT}V{self.Voltage[iv]}")
 
                 iv += 1
 
@@ -168,31 +157,54 @@ class MainWindow(QMainWindow):
         self.Close_COM()
         self.label.setText("Status: Completed")
 
-    def on_stop(self):
-        self.label.setText("Status: Stopped")
-        self.button1.setEnabled(True)
-        self.button2.setEnabled(False)
+    def Command2_Click(self):
+        self.close()
 
     def Init_COM(self, port):
-        pass  # Implement the COM port initialization using pyserial or another method
+        self.serial_port = serial.Serial(port=f'COM{port}', baudrate=9600, parity=serial.PARITY_NONE, stopbits=serial.STOPBITS_ONE, bytesize=serial.EIGHTBITS)
+        self.serial_port.isOpen()
+
+    def Close_COM(self):
+        if self.serial_port and self.serial_port.isOpen():
+            self.serial_port.close()
 
     def Init_Gen(self):
         self.Gen_id = 1  # Dummy implementation
 
     def SendCommand(self, command):
-        pass  # Implement the function to send commands to the device
+        if self.Gen_id:
+            # Implement command sending to the device
+            pass
 
     def Set_Amplitude(self, amplitude):
-        pass  # Implement the function to set amplitude
+        if amplitude != 0:
+            if self.DCmode:
+                self.SendCommand(f"APPL:SQU {self.Freq}")
+                self.SendCommand(f"VOLT {amplitude}")
+                self.DCmode = False
+            else:
+                self.SendCommand(f"VOLT {amplitude}")
+        else:
+            self.DCmode = True
+            self.SendCommand(f"APPLy:DC DEF, DEF, {self.Offset}")
 
     def Set_Temp(self, temp):
-        pass  # Implement the function to set temperature
+        temp = self.TemRes * temp
+        address, code, a_msb, a_lsb, v_msb, v_lsb = 1, 6, 0, 2, temp // 256, temp % 256
+        message = bytes([address, code, a_msb, a_lsb, v_msb, v_lsb])
+        self.serial_port.write(message)
 
     def Read_Temp(self):
-        return 25.0  # Dummy implementation to read temperature
-
-    def SaveSpec(self, comment):
-        pass  # Implement the function to save the spectrum
+        address, code, a1_h, a1_l, n_h, n_l = 1, 3, 0, 1, 0, 1
+        self.serial_port.read_all()  # Clear the buffer
+        time.sleep(0.1)
+        message = bytes([address, code, a1_h, a1_l, n_h, n_l])
+        self.serial_port.write(message)
+        time.sleep(0.1)
+        response = self.serial_port.read_all()
+        if len(response) >= 5:
+            return (response[3] * 256 + response[4]) / self.TemRes
+        return 0
 
     def Waiting(self, min):
         sec = round(min * 60)
@@ -212,7 +224,6 @@ class MainWindow(QMainWindow):
         tl = tlist.strip()
         p1 = 1
         vmax = 0
-        pos = 0
         i1 = 0
 
         while p1 > 0:
@@ -257,7 +268,6 @@ class MainWindow(QMainWindow):
     def Fill_Temp(self, tlist):
         tl = tlist.strip()
         p5 = 1
-        pos = 0
         i5 = 0
 
         while p5 > 0:
@@ -295,6 +305,9 @@ class MainWindow(QMainWindow):
         self.Num_Temp = i5
         self.Temperature[i5 + 1] = 999
 
+    def SaveSpec(self, comment):
+        # Implement the function to save the spectrum
+        pass
 
 if __name__ == '__main__':
     app = QApplication(sys.argv)
