@@ -13,6 +13,8 @@ gpib_ctypes.gpib.gpib._load_lib("C:\\Users\\Abeli\\AppData\\Local\\Programs\\Pyt
 import pyvisa
 import serial
 import json
+
+
 Gen_id = 0
 dev_Osc, Command, param, Out_File, Out_Data, Volt_List, Temp_List, ReadBuffer = "", "", "", "", "", "", "", ""
 SSComment = ""
@@ -30,70 +32,6 @@ AVANTES_name = 'notepad.exe'
 print("Number of Devices connected ",AVS_UpdateUSBDevices())
 
 ### Temperature Cycle ###
-
-
-# def AVS_UpdateUSBDevices():
-#     """
-#     Internally checks the list of connected USB devices and returns the number 
-#     of devices attached. If AVS_Init() was called with a_Port=-1, the return 
-#     value also includes the number of ETH devices.
-    
-#     :return: Number of devices found.    
-#     """
-#     prototype = func(ctypes.c_int)
-#     AVS_UpdateUSBDevices = prototype(("AVS_UpdateUSBDevices", lib),)
-#     ret = AVS_UpdateUSBDevices()
-#     return ret  
-# port = 1
-# deviceID = port
-# def AVS_Activate(deviceId):
-#     """
-#     Activates spectrometer for communication
-    
-#     :param deviceId: The device identifier
-#     :type deviceId: AvsIdentityType
-#     :return: AvsHandle, handle to be used in subsequent function calls
-#     """
-#     datatype = ctypes.c_byte * 75
-#     temp = datatype()
-#     x = 0
-#     while (x < 9): # 0 through 8
-#         temp[x] = deviceId.SerialNumber[x]
-#         x += 1
-#     temp[9] = 0
-#     x += 1    
-#     while (x<74): # 10 through 73
-#         temp[x] = 0
-#         x += 1
-#     temp[74] = int.from_bytes(deviceId.Status, byteorder='big')  #  cannot assign directly here
-#     prototype = func(ctypes.c_int, ctypes.c_byte * 75)
-#     paramflags = (1, "deviceId",),
-#     AVS_Activate = prototype(("AVS_Activate", lib), paramflags)
-#     ret = AVS_Activate(temp)
-#     return ret
-
-# def AVS_Measure(handle, windowhandle, nummeas):
-#     """
-#     Starts measurement on the spectrometer, variant used for Windows messages or polling
-    
-#     :param handle: AvsHandle of the spectrometer
-#     :param windowhandle: Window handle to notify application measurement result
-#     data is available. The library sends a Windows message to the window with 
-#     command WM_MEAS_READY, with SUCCESS, the number of scans that were saved in
-#     RAM (if enabled), or INVALID_MEAS_DATA as WPARM value and handle as LPARM 
-#     value. Use on Windows only, 0 to disable.
-#     :param nummeas: number of measurements to do. -1 is infinite, -2 is used to
-#     start Dynamic StoreToRam
-#     :return: SUCCESS = 0 or FAILURE <> 0
-#     """
-#     if not (('linux' in sys.platform) or ('darwin' in sys.platform)):
-#         prototype = func(ctypes.c_int, ctypes.c_int, ctypes.wintypes.HWND, ctypes.c_uint16)
-#     else:
-#         prototype = func(ctypes.c_int, ctypes.c_int, ctypes.c_int, ctypes.c_uint16)
-#     paramflags = (1, "handle",), (1, "windowhandle",), (1, "nummeas")
-#     AVS_Measure = prototype(("AVS_Measure", lib), paramflags)
-#     ret = AVS_Measure(handle, windowhandle, nummeas) 
-#     return ret
   
 
 import subprocess
@@ -263,57 +201,7 @@ class MainWindow(QMainWindow):
         
         # self.terminal_output = QTextEdit(self)
         # self.terminal_output.setReadOnly(True)
-        
-        
-        
-        # Additional text boxes and their corresponding change handlers
-        # self.text1 = QLineEdit(self)
-        # self.add_labeled_textbox("TemRes:", self.text1, self.text1_change)
-        
-        # self.text2 = QLineEdit(self)
-        # self.add_labeled_textbox("N/A:", self.text2, self.text2_change)
-        
-        # self.text3 = QLineEdit(self)
-        # self.add_labeled_textbox("AvPer:", self.text3, self.text3_change)
-        
-        # self.text4 = QLineEdit(self)
-        # self.add_labeled_textbox("Volt_list:", self.text4, self.text4_change)
-        
-        # self.text5 = QLineEdit(self)
-        # self.add_labeled_textbox("Offset:", self.text5, self.text5_change)
-        
-        # self.text6 = QLineEdit(self)
-        # self.add_labeled_textbox("TempList:", self.text6, self.text6_change)
-        
-        # self.text7 = QLineEdit(self)
-        # self.add_labeled_textbox("Fold:", self.text7, self.text7_change)
-        
-        # self.text8 = QLineEdit(self)
-        # self.add_labeled_textbox("BaseName:", self.text8, self.text8_change)
-        
-        # self.text9 = QLineEdit(self)
-        # self.add_labeled_textbox("Temp_Wait:", self.text9, self.text9_change)
-        
-        # self.text10 = QLineEdit(self)
-        # self.add_labeled_textbox("N/A:", self.text10, self.text10_change)
-        
-        # self.text11 = QLineEdit(self)
-        # self.add_labeled_textbox("LastTemp:", self.text11, self.text11_change)
-        
-        # self.text12 = QLineEdit(self)
-        # self.add_labeled_textbox("Accuracy:", self.text12, self.text12_change)
-        
-        # self.text14 = QLineEdit(self)
-        # self.add_labeled_textbox("VScalMax:", self.text14, self.text14_change)
-        
-        # self.text16 = QLineEdit(self)
-        # self.add_labeled_textbox("Waiting Voltage:", self.text16, self.text16_change)
-        
-        # self.text17 = QLineEdit(self)
-        # self.add_labeled_textbox("AmpGain:", self.text17, self.text17_change)
-        
-        # self.text18 = QLineEdit(self)
-        # self.add_labeled_textbox("WaitV:", self.text18, self.text18_change)
+    
         
         # Create a horizontal layout to contain the main layout and the terminal output
         # self.h_layout = QHBoxLayout()
