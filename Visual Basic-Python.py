@@ -77,13 +77,9 @@ class MainWindow(QMainWindow):
     def __init__(self):
         super().__init__()
         
-        
         # Set the current Date
         self.da = QDateTime.currentDateTime() 
         
-        # Initialize pyvisa ResourceManager and the signal generator
-        # self.rm = pyvisa.ResourceManager()
-        # self.gen_id = self.rm.open_resource('GPIB0::1::INSTR')  # Replace with your resource string
         self.DCmode = False
         self.text_fields = {
             "TemRes": QLineEdit(self),
@@ -98,17 +94,55 @@ class MainWindow(QMainWindow):
             "N/A2": QLineEdit(self),
             "LastTemp": QLineEdit(self),
             "Accuracy": QLineEdit(self),
+            "Frequency": QLineEdit(self),
             "VScalMax": QLineEdit(self),
             "Waiting Voltage": QLineEdit(self),
-            "Frequency:": QLineEdit(self),
+            "Frequency": QLineEdit(self),
             "AmpGain": QLineEdit(self),
             "WaitV": QLineEdit(self),
         } 
         self.initUI()
-
         self.load_values()
+        self.connect_signals()
+        for field in self.text_fields.values():
+            field.setFixedSize(200, 20)
+    #     # Populate the upper left box with some elements
+    #     # self.upper_left_box.addWidget(QLabel('Upper Left Box'))
+    #     # self.upper_left_box.addWidget(QPushButton('Button 1'))
+
+        
+    #     # Populate the upper right box with some elements
+    #     # self.upper_right_box.addWidget(QLabel('Upper Right Box'))
+    #     # self.upper_right_box.addWidget(QPushButton('Button 2'))
+
+        
+    #     # Populate the lower box with some elements
+    #     # Command1 button
+    #     # Create the button
+    #     self.button1 = QPushButton('Start', self)
+    #     # Connect the button's clicked signal to the command1_click method
+    #     self.button1.clicked.connect(self.command1_click)
+    #     # Add the button to one of the layouts, for example, upper_left_box
+    #     self.upper_left_box.addWidget(self.button1)
+        
+    #     # self.lower_box.addWidget(QLabel('Lower Box'))
+    #     # self.lower_box.addWidget(QPushButton('Button 3'))
+
+        
+    #     self.show()
+        # Create the main layout
+        # self.layout = QVBoxLayout()
+        
+        # Create and set the EndOfProgram label
+        # self.EndOfProgram = QLabel('End of Program', self)
+        # self.layout.addWidget(self.EndOfProgram)
+        # Status label
+        # self.Status = QLabel('Status: Waiting', self)
+        # self.layout.addWidget(self.Status)
+        
+   
     def initUI(self):
-        self.setWindowTitle("AvaSpec GUI")
+        self.setWindowTitle("AvaSpec UI")
 
         # Create main grid layout
         self.grid_layout = QGridLayout()
@@ -119,30 +153,27 @@ class MainWindow(QMainWindow):
         self.lower_box = QVBoxLayout()
         
         # Populate the upper left box with some elements
-        # self.upper_left_box.addWidget(QLabel('Upper Left Box'))
-        # self.upper_left_box.addWidget(QPushButton('Button 1'))
         self.add_text_field_to_layout(self.upper_left_box, "TemRes")
         self.add_text_field_to_layout(self.upper_left_box, "WaitV")
         self.add_text_field_to_layout(self.upper_left_box, "AvPer")
+        self.add_text_field_to_layout(self.upper_left_box, "Frequency")
+        
+        # Command1 button
+        self.button1 = QPushButton('Start', self)
+        self.button1.clicked.connect(self.command1_click)
+        self.upper_left_box.addWidget(self.button1)
+        
+        # Command2 button
+        self.button2 = QPushButton('Stop', self)
+        self.button2.clicked.connect(self.command2_click)
+        self.upper_left_box.addWidget(self.button2)
         
         # Populate the upper right box with some elements
-        # self.upper_right_box.addWidget(QLabel('Upper Right Box'))
-        # self.upper_right_box.addWidget(QPushButton('Button 2'))
         self.add_text_field_to_layout(self.upper_right_box, "Volt_list")
         self.add_text_field_to_layout(self.upper_right_box, "Offset")
         self.add_text_field_to_layout(self.upper_right_box, "TempList")
         
         # Populate the lower box with some elements
-        # Command1 button
-        # Create the button
-        self.button1 = QPushButton('Start', self)
-        # Connect the button's clicked signal to the command1_click method
-        self.button1.clicked.connect(self.command1_click)
-        # Add the button to one of the layouts, for example, upper_left_box
-        self.upper_left_box.addWidget(self.button1)
-        
-        # self.lower_box.addWidget(QLabel('Lower Box'))
-        # self.lower_box.addWidget(QPushButton('Button 3'))
         self.add_text_field_to_layout(self.lower_box, "Fold")
         self.add_text_field_to_layout(self.lower_box, "BaseName")
         self.add_text_field_to_layout(self.lower_box, "Temp_Wait")
@@ -152,84 +183,46 @@ class MainWindow(QMainWindow):
         self.add_text_field_to_layout(self.lower_box, "VScalMax")
         self.add_text_field_to_layout(self.lower_box, "Waiting Voltage")
         self.add_text_field_to_layout(self.lower_box, "AmpGain")
-        self.add_text_field_to_layout(self.lower_box, "WaitV")
+        
+        self.Status = QLabel('Status: Waiting', self)
+        self.lower_box.addWidget(self.Status)
+        self.Status.setStyleSheet("background-color: green;")
+        self.Status.setFixedSize(300, 50)  # Set the size of the label
+        self.Status.setAlignment(Qt.AlignCenter)
+
         
         self.upper_left_widget = QWidget()
         self.upper_left_widget.setLayout(self.upper_left_box)
-        self.upper_left_widget.setStyleSheet("border: 2px solid red;")
+        # self.upper_left_widget.setStyleSheet("") #border: 2px solid red;
 
         self.upper_right_widget = QWidget()
         self.upper_right_widget.setLayout(self.upper_right_box)
-        self.upper_right_widget.setStyleSheet("border: 2px solid green;")
+        # self.upper_right_widget.setStyleSheet("") #border: 2px solid green;
 
         self.lower_widget = QWidget()
         self.lower_widget.setLayout(self.lower_box)
-        self.lower_widget.setStyleSheet("border: 2px solid blue;")
+        # self.lower_widget.setStyleSheet("") #border: 2px solid blue;
+        
         # Add these boxes to the grid layout
-        self.grid_layout.addLayout(self.upper_left_box, 0, 0)
-        self.grid_layout.addLayout(self.upper_right_box, 0, 1)
-        self.grid_layout.addLayout(self.lower_box, 1, 0, 1, 2)
+        self.grid_layout.addWidget(self.upper_left_widget, 0, 0)
+        self.grid_layout.addWidget(self.upper_right_widget, 0, 1)
+        self.grid_layout.addWidget(self.lower_widget, 1, 0, 1, 2)
         
         # Set the grid layout as the central widget's layout
         container = QWidget()
         container.setLayout(self.grid_layout)
+        container.setStyleSheet("border: 1px solid black;")
         self.setCentralWidget(container)
         
         self.show()
-        # Create the main layout
-        # self.layout = QVBoxLayout()
-        
-        # Create and set the EndOfProgram label
-        # self.EndOfProgram = QLabel('End of Program', self)
-        # self.layout.addWidget(self.EndOfProgram)
-        # Status label
-        # self.Status = QLabel('Status: Waiting', self)
-        # self.layout.addWidget(self.Status)
 
-        
-
-        # # Command2 button
-        # self.button2 = QPushButton('Command2', self)
-        # self.button2.setEnabled(False)
-        # self.layout.addWidget(self.button2)
-
-        # # Frequency label and text box
-        # self.text13 = QLineEdit(self)
-        # self.add_labeled_textbox("Frequency:", self.text13, self.set_frequency)
-        # Terminal output Box
-        
-        
-        # self.terminal_output = QTextEdit(self)
-        # self.terminal_output.setReadOnly(True)
-    
-        
-        # Create a horizontal layout to contain the main layout and the terminal output
-        # self.h_layout = QHBoxLayout()
-        # self.h_layout.addLayout(self.layout)
-        # self.h_layout.addWidget(self.terminal_output)
-
-        # # Set the horizontal layout as the main layout of the window
-        # container = QWidget()
-        # container.setLayout(self.h_layout)
-        # self.setCentralWidget(container)
-        # self.show()
-        
-        self.Form_Load()
-    # def add_form_fields(self):
-    #     form_layout = QFormLayout()
-    #     for label, field in self.text_fields.items():
-    #         form_layout.addRow(label, field)
-
-        # # Create a widget for the form layout and add it to the lower box
-        # form_container = QWidget()
-        # form_container.setLayout(form_layout)
-        # self.lower_box.addWidget(form_container)    
     def add_text_field_to_layout(self, layout, field_name):
         if field_name in self.text_fields:
             label = QLabel(field_name)
             field = self.text_fields[field_name]
             layout.addWidget(label)
             layout.addWidget(field)
+
     def save_values(self):
         values = {label: field.text() for label, field in self.text_fields.items()}
         with open("values.json", "w") as f:
@@ -244,24 +237,6 @@ class MainWindow(QMainWindow):
                         self.text_fields[label].setText(value)
         except FileNotFoundError:
             pass
-
-    def closeEvent(self, event):
-        self.save_values()
-        super().closeEvent(event)    
-        
-    def command2_click(self):
-        # Simulate unloading Form1
-        self.close()
-    def add_labeled_textbox(self, label_text, text_var, change_handler):
-        label = QLabel(label_text, self)
-        text_var.textChanged.connect(change_handler)
-        
-        h_layout = QHBoxLayout()
-        h_layout.addWidget(label)
-        h_layout.addWidget(text_var)
-        self.layout.addLayout(h_layout)
-
-    
     def connect_signals(self):
         self.text_fields["TemRes"].textChanged.connect(self.text1_change)
         self.text_fields["N/A1"].textChanged.connect(self.text2_change)
@@ -275,16 +250,28 @@ class MainWindow(QMainWindow):
         self.text_fields["N/A2"].textChanged.connect(self.text10_change)
         self.text_fields["LastTemp"].textChanged.connect(self.text11_change)
         self.text_fields["Accuracy"].textChanged.connect(self.text12_change)
+        self.text_fields["Frequency"].textChanged.connect(self.text13_change)
         self.text_fields["VScalMax"].textChanged.connect(self.text14_change)
         self.text_fields["Waiting Voltage"].textChanged.connect(self.text16_change)
-        self.text_fields["Frequency"].textChanged.connect(self.set_frequency)
         self.text_fields["AmpGain"].textChanged.connect(self.text17_change)
         self.text_fields["WaitV"].textChanged.connect(self.text18_change)
+    
+
+    def closeEvent(self, event):
+        self.save_values()
+        super().closeEvent(event)
         
-    def set_frequency(self):
-        freq = float(self.text13.text())
-        wrt_buf = f"APPL:SQU {freq}"
-        self.gen_id.write(wrt_buf)
+    def command2_click(self):
+        # Simulate unloading Form1
+        self.close()
+    def add_labeled_textbox(self, label_text, text_var, change_handler):
+        label = QLabel(label_text, self)
+        text_var.textChanged.connect(change_handler)
+        
+        h_layout = QHBoxLayout()
+        h_layout.addWidget(label)
+        h_layout.addWidget(text_var)
+        self.layout.addLayout(h_layout)
 
     def text1_change(self):
         global TemRes
@@ -313,6 +300,7 @@ class MainWindow(QMainWindow):
     def text7_change(self):
         global Fold
         Fold = self.text7.text()
+        
     def text8_change(self):
         global BaseName
         BaseName = self.text8.text()
@@ -320,6 +308,7 @@ class MainWindow(QMainWindow):
     def text9_change(self):
         global Temp_Wait
         Temp_Wait = float(self.text9.text())
+        
     def text10_change(self):
         global QQ
         QQ = int(float(self.text10.text()))
@@ -331,6 +320,11 @@ class MainWindow(QMainWindow):
     def text12_change(self):
         global Accuracy
         Accuracy = round(float(self.text12.text()), 2)
+        
+    def text13_change(self):
+        Freq = float(self.text13.text())
+        wrt_buf = f"APPL:SQU {Freq}"
+        self.gen_id.write(wrt_buf)
 
     def text14_change(self):
         global VScalMax
@@ -499,6 +493,7 @@ class MainWindow(QMainWindow):
         CRCL = CRC16 & 255
         message += chr(CRCL) + chr(CRCH) + "xyz"
         return CRC16
+    
     def Read_Temp(self):
         ADDRESS = 1
         CODE = 3
