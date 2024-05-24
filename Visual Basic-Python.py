@@ -8,76 +8,9 @@ import struct
 from PyQt5.QtWidgets import *
 from avaspec import *
 from PyQt5.QtCore import *
-# import gpib_ctypes.gpib
-# gpib_ctypes.gpib.gpib._load_lib("C:\\Users\\Abeli\\AppData\\Local\\Programs\\Python\\Python312\\Lib\\site-packages\\gpib_ctypes\\gpib")
 import pyvisa
 import serial
 import json
-def Crc(message):
-        CRC16 = 65535
-        for c in message:
-            CRC16 ^= ord(c)
-            for _ in range(8):
-                if CRC16 % 2:
-                    CRC16 = (CRC16 >> 1) ^ 40961
-                else:
-                    CRC16 >>= 1
-        
-        CRCH = CRC16 >> 8
-        CRCL = CRC16 & 255
-        message += chr(CRCL) + chr(CRCH) + "xyz"
-        print(CRC16,"CRC16")
-        # return CRC16
-        return message
-def Read_Temp():
-        ADDRESS = 1
-        CODE = 3
-        A1_H = 0
-        A1_L = 1  # 1- Display; 2-SetPoint
-        N_H = 0
-        N_L = 1
-        TemRes = 100  # Define the temperature resolution variable
-        
-        ser = serial.Serial('COM1', 9600, timeout=2)  # Adjust the port and baudrate as necessary
-        print("ser: ", ser)
-        ser.reset_input_buffer()
-        time.sleep(0.3)
-        
-        message = chr(ADDRESS) + chr(CODE) + chr(A1_H) + chr(A1_L) + chr(N_H) + chr(N_L)
-        message = Crc(message)
-        
-        print(message)
-        ser.write(message.encode('latin-1'))
-        time.sleep(0.3)
-        print(message)
-        mes = ser.read(7)  # Adjust the number of bytes to read if necessary
-        print("No. of bytes: ",len(mes))
-        if len(mes) < 7:
-            raise Exception("Incomplete message received")
-        
-        read_temp = (256 * (mes[3]) + (mes[4])) / TemRes
-        
-        ser.close()
-        return read_temp
-def Set_Temp(temp):
-    TemRes=100
-    temp= int(TemRes*temp)
-    ADDRESS =1
-    CODE = 6
-    A_MSB = 0
-    A_LSB = 2
-    V_MSB = temp // 256
-    V_LSB = temp % 256
-    
-    message = chr(ADDRESS) + chr(CODE) + chr(A_MSB) + chr(A_LSB) + chr(V_MSB) + chr(V_LSB)
-    message = Crc(message)
-    
-    ser = serial.Serial('COM1', 9600, timeout=2)  # Adjust the port and baudrate as necessary
-
-    ser.write(message.encode("latin-1"))
-    time.sleep(0.2)
-    ser.close()
-    return 1
 
 
 # print("This is the Temperature: ",Read_Temp())
@@ -94,71 +27,25 @@ Fast, AST, ASV, Expire, DCmode = False, False, False, False, False
 
 AVANTES_path = "C:\\Program Files (x86)\\AvaSoft8\\avasoft8.exe"
 AVANTES_name = 'avasoft8.exe'
-rm = pyvisa.ResourceManager()
-devices = rm.list_resources()
-for device in devices:
-    print(device)
+
+# rm = pyvisa.ResourceManager()
+# devices = rm.list_resources()
+# for device in devices:
+#     print(device)
 # print(Read_Temp())
 # Set_Temp(30.0)
 # time.sleep(10)
 # print(Read_Temp())
 DCmode = False
-def Set_Offset(offset):
-    command = f"VOLT:OFFS {offset}\n"
-    send_command(command)
-def init_gen():
-    # global ser
-    global gen
-    B_G = 0
-    P_G = 10
-    N_G = 0
-    T_G = 0
-    E1_G = 1
-    E2_G = 0
-    # gpib_address = f"FPIB{B_G}::{P_G}::{N_G}::INSTR"
-    gpib_address = "GPIB0::10::INSTR"
-    gen = rm.open_resource(gpib_address)
-    
-    # gen_id = {B_G, P_G, N_G, T_G, E1_G, E2_G}
-    # ser = serial.Serial("COM1",9600,timeout = 3)
-    Set_Offset("0")
-def send_command(command):
-    if gen is not None:
-        gen.write(command)
-    else:
-        raise Exception("No connection on GPIB")
-def set_waveform(form):
-    command = f"FUNC:SHAP {form}\n"
-    send_command(command)
-def set_freq(freq):
-    command = f"FREQ {freq}"
-    send_command(command)
-    
-def set_amplitude(amplitude, freq):
-    global DCmode
-    if amplitude != 0:
-        if DCmode:
-            command = f"APPL:SQU {freq}\n"
-            send_command(command)
-            command = f"VOLT {amplitude}\n"
-            send_command(command)
-            DCmode = False
-        else:
-            command = f"VOLT {amplitude}\n"
-            send_command(command)
-    else:
-        DCmode = True
-        command = f"APPLy:DC DEF, DEF, O\n"
-        send_command(command)
-# init_gen() 
-init_gen()
-set_freq(1000)
-set_amplitude(2.1,1000)
+
+# Init_Gen()
+# Set_Freq(1000)
+# Set_Amplitude(2.1,1000)
 
 
 
-# set_freq(120)
-# set_amplitude(0.2,110)         
+# Set_Freq(120)
+# Set_Amplitude(0.2,110)         
 # print(AVS_Init(0))
 # print("Number of Devices connected ",AVS_UpdateUSBDevices())
 # print(AVS_GetList())
@@ -177,33 +64,30 @@ import pygetwindow as gw
        
 ##### Opening UI ########
 
-# Placeholder functions for Fill_Volt and Fill_Temp
-
 class MainWindow(QMainWindow):
     def __init__(self):
         super().__init__()
+        self.rm = pyvisa.ResourceManager()
+        devices = self.rm.list_resources()
+        for device in devices:
+            print(device)
         
         # Set the current Date
         self.da = QDateTime.currentDateTime() 
         
         self.DCmode = False
         self.text_fields = {
-            "TemRes": QLineEdit(self),
-            "QQ": QLineEdit(self),
-            "AvPer": QLineEdit(self),
+            "TempRes": QLineEdit(self),
             "Volt_List": QLineEdit(self),
             "Offset": QLineEdit(self),
-            "Temp_List": QLineEdit(self),
+            "Temp_List": QLineEdit(self), 
             "Fold": QLineEdit(self),
             "BaseName": QLineEdit(self),
-            "Temp_Wait": QLineEdit(self),
-            "N/A": QLineEdit(self),
+            "Temp_Wait": QLineEdit(self), # Used Once in the Temp loop
             "LastTemp": QLineEdit(self),
             "Accuracy": QLineEdit(self),
             "Frequency": QLineEdit(self),
-            "VScalMax": QLineEdit(self),
             "WaitingVoltage": QLineEdit(self),
-            "Frequency": QLineEdit(self),
             "AmpGain": QLineEdit(self),
             "WaitV": QLineEdit(self),
         } 
@@ -212,42 +96,10 @@ class MainWindow(QMainWindow):
         self.connect_signals()
         for field in self.text_fields.values():
             field.setFixedSize(200, 20)
-    #     # Populate the upper left box with some elements
-    #     # self.upper_left_box.addWidget(QLabel('Upper Left Box'))
-    #     # self.upper_left_box.addWidget(QPushButton('Button 1'))
-
-        
-    #     # Populate the upper right box with some elements
-    #     # self.upper_right_box.addWidget(QLabel('Upper Right Box'))
-    #     # self.upper_right_box.addWidget(QPushButton('Button 2'))
-
-        
-    #     # Populate the lower box with some elements
-    #     # Command1 button
-    #     # Create the button
-    #     self.button1 = QPushButton('Start', self)
-    #     # Connect the button's clicked signal to the command1_click method
-    #     self.button1.clicked.connect(self.command1_click)
-    #     # Add the button to one of the layouts, for example, upper_left_box
-    #     self.upper_left_box.addWidget(self.button1)
-        
-    #     # self.lower_box.addWidget(QLabel('Lower Box'))
-    #     # self.lower_box.addWidget(QPushButton('Button 3'))
-
-        
-    #     self.show()
-        # Create the main layout
-        # self.layout = QVBoxLayout()
-        
-        # Create and set the EndOfProgram label
-        # self.EndOfProgram = QLabel('End of Program', self)
-        # self.layout.addWidget(self.EndOfProgram)
-        # Status label
-        # self.Status = QLabel('Status: Waiting', self)
-        # self.layout.addWidget(self.Status)
-        
+        # self.Form_Load()      
    
     def initUI(self):
+        self.setGeometry(300, 300, 900, 400)
         self.setWindowTitle("AvaSpec UI")
 
         # Create main grid layout
@@ -259,37 +111,25 @@ class MainWindow(QMainWindow):
         self.lower_box = QVBoxLayout()
         
         # Populate the upper left box with some elements
-        self.add_text_field_to_layout(self.upper_left_box, "TemRes")
-        self.add_text_field_to_layout(self.upper_left_box, "WaitV")
-        self.add_text_field_to_layout(self.upper_left_box, "QQ")
-        self.add_text_field_to_layout(self.upper_left_box, "AvPer")
-        self.add_text_field_to_layout(self.upper_left_box, "Frequency")
-        self.add_text_field_to_layout(self.upper_left_box, "VScalMax")
-        self.add_text_field_to_layout(self.upper_left_box, "WaitingVoltage")
-        self.add_text_field_to_layout(self.upper_left_box, "AmpGain")
-        # Command1 button
-        self.button1 = QPushButton('Start', self)
-        self.button1.clicked.connect(self.command1_click)
-        self.upper_left_box.addWidget(self.button1)
+        self.add_text(self.upper_left_box, "TempRes")
+        self.add_text(self.upper_left_box, "WaitV")
+        self.add_text(self.upper_left_box, "Frequency")
+        self.add_text(self.upper_left_box, "WaitingVoltage")
+        self.add_text(self.upper_left_box, "AmpGain")
         
-        # Command2 button
-        self.button2 = QPushButton('Stop', self)
-        self.button2.clicked.connect(self.command2_click)
-        self.upper_left_box.addWidget(self.button2)
         
         # Populate the upper right box with some elements
-        self.add_text_field_to_layout(self.upper_right_box, "Volt_List")
-        self.add_text_field_to_layout(self.upper_right_box, "Offset")
-        self.add_text_field_to_layout(self.upper_right_box, "Temp_List")
-        self.add_text_field_to_layout(self.upper_right_box, "Temp_Wait")
-        self.add_text_field_to_layout(self.upper_right_box, "N/A")
-        self.add_text_field_to_layout(self.upper_right_box, "LastTemp")
-        self.add_text_field_to_layout(self.upper_right_box, "Accuracy")
+        self.add_text(self.upper_right_box, "Volt_List")
+        self.add_text(self.upper_right_box, "Offset")
+        self.add_text(self.upper_right_box, "Temp_List")
+        self.add_text(self.upper_right_box, "Temp_Wait")
+        self.add_text(self.upper_right_box, "LastTemp")
+        self.add_text(self.upper_right_box, "Accuracy")
         
         
         # Populate the lower box with some elements
-        self.add_text_field_to_layout(self.lower_box, "Fold")
-        self.add_text_field_to_layout(self.lower_box, "BaseName")
+        self.add_text(self.lower_box, "Fold")
+        self.add_text(self.lower_box, "BaseName")
         
         
         self.Status = QLabel('Status: Waiting', self)
@@ -297,34 +137,62 @@ class MainWindow(QMainWindow):
         self.Status.setStyleSheet("background-color: green;")
         self.Status.setFixedSize(400, 100)  # Set the size of the label
         self.Status.setAlignment(Qt.AlignCenter)
-
         
+        # Command1 button
+        self.button1 = QPushButton('Start', self)
+        self.button1.setFixedSize(QSize(100, 50))  # Set button size
+        self.button1.setStyleSheet("background-color: green; color: white;")
+        self.button1.clicked.connect(self.command1_click)
+        self.upper_left_box.addWidget(self.button1)
+        self.button1.setEnabled(True)
+        
+        # Command2 button
+        self.button2 = QPushButton('Stop', self)
+        self.button1.setFixedSize(QSize(100, 50))  # Set button size
+        self.button1.setStyleSheet("background-color: green; color: white;")
+        self.button2.clicked.connect(self.command2_click)
+        self.upper_left_box.addWidget(self.button2)
+        self.button2.setEnabled(False)
+        
+        # Create and set up the upper left widget
         self.upper_left_widget = QWidget()
         self.upper_left_widget.setLayout(self.upper_left_box)
-        # self.upper_left_widget.setStyleSheet("") #border: 2px solid red;
+        self.add_group_box_with_title(self.upper_left_widget, self.grid_layout, 'Upper Left Box', 0, 0)
 
+        # Create and set up the upper right widget
         self.upper_right_widget = QWidget()
         self.upper_right_widget.setLayout(self.upper_right_box)
-        # self.upper_right_widget.setStyleSheet("") #border: 2px solid green;
+        self.add_group_box_with_title(self.upper_right_widget, self.grid_layout, 'Upper Right Box', 0, 1)
 
+        # Create and set up the lower widget
         self.lower_widget = QWidget()
         self.lower_widget.setLayout(self.lower_box)
-        # self.lower_widget.setStyleSheet("") #border: 2px solid blue;
-        
-        # Add these boxes to the grid layout
-        self.grid_layout.addWidget(self.upper_left_widget, 0, 0)
-        self.grid_layout.addWidget(self.upper_right_widget, 0, 1)
-        self.grid_layout.addWidget(self.lower_widget, 1, 0, 1, 2)
-        
+        self.add_group_box_with_title(self.lower_widget, self.grid_layout, 'Lower Box', 1, 0, 1, 2)
+
         # Set the grid layout as the central widget's layout
         container = QWidget()
         container.setLayout(self.grid_layout)
-        container.setStyleSheet("border: 1px solid black;")
+        # container.setStyleSheet("border: 1px solid black;")
         self.setCentralWidget(container)
         
         self.show()
-
-    def add_text_field_to_layout(self, layout, field_name):
+        
+    def closeEvent(self, event):
+        self.save_values()
+        super().closeEvent(event)
+        
+    def command2_click(self):
+        # Simulate unloading Form1
+        self.exit_flag = True
+        # self.close()    
+    def add_group_box_with_title(self, widget, layout, title, row, col, rowspan=1, colspan=1):
+        group_box =QGroupBox(title)
+        group_layout = QVBoxLayout()
+        group_layout.addWidget(widget)
+        group_box.setLayout(group_layout)
+        layout.addWidget(group_box, row, col, rowspan, colspan)
+        
+    def add_text(self, layout, field_name):
         if field_name in self.text_fields:
             label = QLabel(field_name)
             field = self.text_fields[field_name]
@@ -346,54 +214,23 @@ class MainWindow(QMainWindow):
         except FileNotFoundError:
             pass
     def connect_signals(self):
-        self.text_fields["TemRes"].textChanged.connect(self.text1_change)
-        self.text_fields["N/A"].textChanged.connect(self.text2_change)
-        self.text_fields["AvPer"].textChanged.connect(self.text3_change)
+        self.text_fields["TempRes"].textChanged.connect(self.text1_change)
         self.text_fields["Volt_List"].textChanged.connect(self.text4_change)
         self.text_fields["Offset"].textChanged.connect(self.text5_change)
         self.text_fields["Temp_List"].textChanged.connect(self.text6_change)
         self.text_fields["Fold"].textChanged.connect(self.text7_change)
         self.text_fields["BaseName"].textChanged.connect(self.text8_change)
         self.text_fields["Temp_Wait"].textChanged.connect(self.text9_change)
-        self.text_fields["QQ"].textChanged.connect(self.text10_change)
         self.text_fields["LastTemp"].textChanged.connect(self.text11_change)
         self.text_fields["Accuracy"].textChanged.connect(self.text12_change)
         self.text_fields["Frequency"].textChanged.connect(self.text13_change)
-        self.text_fields["VScalMax"].textChanged.connect(self.text14_change)
         self.text_fields["WaitingVoltage"].textChanged.connect(self.text16_change)
         self.text_fields["AmpGain"].textChanged.connect(self.text17_change)
         self.text_fields["WaitV"].textChanged.connect(self.text18_change)
-    
-
-    def closeEvent(self, event):
-        self.save_values()
-        super().closeEvent(event)
-        
-    def command2_click(self):
-        # Simulate unloading Form1
-        self.exit_flag = True
-        # self.close()
-        
-    def add_labeled_textbox(self, label_text, text_var, change_handler):
-        label = QLabel(label_text, self)
-        text_var.textChanged.connect(change_handler)
-        
-        h_layout = QHBoxLayout()
-        h_layout.addWidget(label)
-        h_layout.addWidget(text_var)
-        self.layout.addLayout(h_layout)
 
     def text1_change(self):
         global TemRes
-        TemRes = float(self.text_fields["TemRes"].text())
-
-    def text2_change(self):
-        global SomeVar2
-        SomeVar2 = float(self.text_fields["N/A"].text())
-
-    def text3_change(self):
-        global AvPer
-        AvPer = float(self.text_fields["AvPer"].text())
+        TemRes = float(self.text_fields["TempRes"].text())
 
     def text4_change(self):
         global Volt_List
@@ -418,10 +255,6 @@ class MainWindow(QMainWindow):
     def text9_change(self):
         global Temp_Wait
         Temp_Wait = float(self.text_fields["Temp_Wait"].text())
-        
-    def text10_change(self):
-        global QQ
-        QQ = int(float(self.text_fields["QQ"].text()))
 
     def text11_change(self):
         global LastTemp
@@ -436,10 +269,6 @@ class MainWindow(QMainWindow):
         wrt_buf = f"APPL:SQU {Freq}"
         self.gen_id.write(wrt_buf)
 
-    def text14_change(self):
-        global VScalMax
-        VScalMax = float(self.text_fields["VScalMax"].text())
-
     def text16_change(self):
         global WaitingVoltage
         WaitingVoltage = round(float(self.text_fields["WaitingVoltage"].text()), 1)
@@ -452,7 +281,7 @@ class MainWindow(QMainWindow):
         global WaitV
         WaitV = float(self.text_fields["WaitV"].text()) * 1000
 
-    ### Window Controll
+    ### Window Control ###
     def is_application_open(self,name):
         """Check if there is any running process that contains the given name."""
         for proc in psutil.process_iter(['name']):
@@ -482,37 +311,9 @@ class MainWindow(QMainWindow):
 
     def type_in_application(self,text):
         """Types a string of text into the open application."""
-        pyautogui.typewrite(text, interval=0.1)    
+        pyautogui.typewrite(text, interval=0.1)   
+         
     ### Oscilloscope Control ###
-    def Set_WaveForm(self, freq):
-        wrt_buf = f"FREQ {freq}"
-        self.gen_id.write(wrt_buf)
-
-    def Set_Amplitude(self, amplitude):
-        if amplitude != 0:
-            if self.DCmode:
-                wrt_buf = f"APPL:SQU {self.Freq}"
-                self.gen_id.write(wrt_buf)
-                wrt_buf = f"VOLT {amplitude}"
-                self.gen_id.write(wrt_buf)
-                self.DCmode = False
-            else:
-                wrt_buf = f"VOLT {amplitude}"
-                self.gen_id.write(wrt_buf)
-        else:
-            self.DCmode = True
-            wrt_buf = f"APPLy:DC DEF, DEF, {self.Offset}"
-            self.gen_id.write(wrt_buf)
-
-    def Set_Offset(self, offset):
-        wrt_buf = f"VOLT:OFFS {offset}"
-        self.gen_id.write(wrt_buf)
-
-    def Init_Gen(self):
-        self.Set_Offset("0")
-        
-        
-    ### ###
     
     def Waiting(self, min):
         sec = round(min * 60)
@@ -523,7 +324,6 @@ class MainWindow(QMainWindow):
 
     def Wait_Temp(self):
         self.Mess = "Waiting for Accuracy"
-        print('\a')  # Beep
         i = 0
         while abs(self.SetT - self.CurrentT) > self.Accuracy:
             time.sleep(1)
@@ -587,38 +387,26 @@ class MainWindow(QMainWindow):
                 else:
                     TL1 = TL
     def Form_Load(self):
-        # self.TemRes = float(self.text1.text())
-        # self.AvPer = float(self.text3.text())
-        # self.Volt_List = self.text4.text()
-        # self.Temp_List = self.text6.text()
-        # self.Accuracy = round(float(self.text12.text()), 2)
-        # self.Offset = float(self.text5.text())
-        # self.Temp_Wait = float(self.text9.text())
-        # self.VScalMax = float(self.text14.text())
-        # self.AmpGain = round(float(self.text17.text()))
-        # self.WaitV = float(self.text18.text()) * 1000
-        # self.Expire = False
-        # self.AST = self.check2.isChecked()
-        # self.ASV = self.check4.isChecked()
-        x =1
+        self.TemRes = float(self.text_fields["TempRes"].text())
+        self.Volt_List = self.text_fields["Volt_List"].text()
+        self.Temp_List = self.text_fields["Temp_List"].text()
+        self.Accuracy = round(float(self.text_fields["Accuracy"].text()), 2)
+        self.Offset = float(self.text_fields["Offset"].text())
+        self.Temp_Wait = float(self.text_fields["Temp_Wait"].text())
+        self.AmpGain = round(float(self.text_fields["AmpGain"].text()))
+        self.WaitV = float(self.text_fields["WaitV"].text()) * 1000
 
     def form_unload(self):
         sys.exit()
-    def log_terminal(self, message):
-        self.terminal_output.append(message)
-    def Beep():
-        print("\a")  # This should produce a beep sound in most terminals
-
+        
     def Waiting(wait_time):
         print(f"Waiting for {wait_time} seconds...")
         time.sleep(wait_time)
-        
-    def Set_Amplitude(amplitude):
-        print(f"Setting amplitude to {amplitude} V")
 
     def WaitTemp():
         print("Waiting for temperature to stabilize...")
         time.sleep(1)
+        
     def Crc(message):
         CRC16 = 65535
         for c in message:
@@ -632,7 +420,9 @@ class MainWindow(QMainWindow):
         CRCH = CRC16 >> 8
         CRCL = CRC16 & 255
         message += chr(CRCL) + chr(CRCH) + "xyz"
-        return CRC16
+        print(CRC16,"CRC16")
+        # return CRC16
+        return message
     
     def Read_Temp(self):
         ADDRESS = 1
@@ -641,50 +431,98 @@ class MainWindow(QMainWindow):
         A1_L = 1  # 1- Display; 2-SetPoint
         N_H = 0
         N_L = 1
-        TemRes = 1  # Define the temperature resolution variable
+        TemRes = 100  # Define the temperature resolution variable
         
         ser = serial.Serial('COM1', 9600, timeout=1)  # Adjust the port and baudrate as necessary
-
         ser.reset_input_buffer()
         time.sleep(0.1)
         
         message = chr(ADDRESS) + chr(CODE) + chr(A1_H) + chr(A1_L) + chr(N_H) + chr(N_L)
-        self.Crc(message)
+        message = self.Crc(message)
         
         ser.write(message.encode('latin-1'))
         time.sleep(0.1)
-        
         mes = ser.read(7)  # Adjust the number of bytes to read if necessary
-        
         if len(mes) < 7:
-            raise Exception("Incomplete message received")
+            raise Exception("Incomplete message received for Temperature")
         
-        read_temp = (256 * ord(mes[3]) + ord(mes[4])) / TemRes
+        read_temp = (256 * (mes[3]) + (mes[4])) / TemRes
         
         ser.close()
         return read_temp
-    def Init_COM(self,port):
-        try:
-            ser = serial.Serial(
-                port=port,
-                baudrate=9600,
-                parity=serial.PARITY_NONE,
-                stopbits=serial.STOPBITS_ONE,
-                bytesize=serial.EIGHTBITS,
-                timeout=1
-            )
-            print(f"Port {port} opened successfully.")
-            return ser
-        except Exception as e:
-            print(f"Error opening port {port}: {e}")
-            return None
+    
+    def Set_Temp(self,temp):
+        TemRes=100
+        temp= int(TemRes*temp)
+        ADDRESS =1
+        CODE = 6
+        A_MSB = 0
+        A_LSB = 2
+        V_MSB = temp // 256
+        V_LSB = temp % 256
+        
+        message = chr(ADDRESS) + chr(CODE) + chr(A_MSB) + chr(A_LSB) + chr(V_MSB) + chr(V_LSB)
+        message = self.Crc(message)
+        
+        ser = serial.Serial('COM1', 9600, timeout=1)  # Adjust the port and baudrate as necessary
 
-    def close_com(ser):
-        if ser and ser.is_open:
-            ser.close()
-            print("Port closed successfully.")
+        ser.write(message.encode("latin-1"))
+        time.sleep(0.2)
+        ser.close()
+        return 1
+    
+    def Set_Offset(self,offset):
+        command = f"VOLT:OFFS {offset}\n"
+        self.send_command(command)
+        
+    def Init_Gen(self):
+        # global ser
+        global gen
+        B_G = 0
+        P_G = 10
+        N_G = 0
+        T_G = 0
+        E1_G = 1
+        E2_G = 0
+        # gpib_address = f"FPIB{B_G}::{P_G}::{N_G}::INSTR"
+        gpib_address = "GPIB0::10::INSTR"
+        gen = self.rm.open_resource(gpib_address)
+
+        # ser = serial.Serial("COM1",9600,timeout = 3)
+        self.Set_Offset("0")
+        
+    def send_command(command):
+        if gen is not None:
+            gen.write(command)
         else:
-            print("Port is not open.")
+            raise Exception("No connection on GPIB")
+        
+    def Set_Waveform(self,form):
+        command = f"FUNC:SHAP {form}\n"
+        self.send_command(command)
+        
+    def Set_Freq(self,freq):
+        command = f"FREQ {freq}"
+        self.send_command(command)
+        
+    def Set_Amplitude(self,amplitude, freq):
+        global DCmode
+        if amplitude != 0:
+            if DCmode:
+                command = f"APPL:SQU {freq}\n"
+                self.send_command(command)
+                command = f"VOLT {amplitude}\n"
+                self.send_command(command)
+                DCmode = False
+            else:
+                command = f"VOLT {amplitude}\n"
+                self.send_command(command)
+        else:
+            DCmode = True
+            command = f"APPLy:DC DEF, DEF, O\n"
+            self.send_command(command)
+            
+    ### Run MAIN Program ###        
     def command1_click(self):
         self.button1.setEnabled(False)
         self.button2.setEnabled(True)
@@ -715,8 +553,7 @@ class MainWindow(QMainWindow):
         self.Fill_Volt(Volt_List)
         self.Fill_Temp(Temp_List)
         Port = 1  # sign = 10
-        # self.Init_COM(Port)
-        # self.Init_Gen()
+
         self.Freq = float(self.text_fields["Frequency"].text())
         wrt_buf = f"APPL:SQU {self.Freq}"
         self.gen_id.write(wrt_buf)
@@ -730,7 +567,6 @@ class MainWindow(QMainWindow):
             SetT = Temperature[it]
             T_Name = FoldName + "T" + str(int((Temperature[it] * TemRes) + 1 / TemRes)).strip()
             Out_Data = T_Name + ".dat"
-            self.Beep()
             self.Set_Temp(SetT)
             
             if it != 0:
@@ -776,7 +612,7 @@ def main():
     window = MainWindow()
     sys.exit(app.exec_())
 
-# if __name__ == '__main__':
-#     main()
+if __name__ == '__main__':
+    main()
     
    
