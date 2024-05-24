@@ -83,20 +83,20 @@ class MainWindow(QMainWindow):
         self.DCmode = False
         self.text_fields = {
             "TemRes": QLineEdit(self),
-            "N/A1": QLineEdit(self),
+            "QQ": QLineEdit(self),
             "AvPer": QLineEdit(self),
-            "Volt_list": QLineEdit(self),
+            "Volt_List": QLineEdit(self),
             "Offset": QLineEdit(self),
-            "TempList": QLineEdit(self),
+            "Temp_List": QLineEdit(self),
             "Fold": QLineEdit(self),
             "BaseName": QLineEdit(self),
             "Temp_Wait": QLineEdit(self),
-            "N/A2": QLineEdit(self),
+            "N/A": QLineEdit(self),
             "LastTemp": QLineEdit(self),
             "Accuracy": QLineEdit(self),
             "Frequency": QLineEdit(self),
             "VScalMax": QLineEdit(self),
-            "Waiting Voltage": QLineEdit(self),
+            "WaitingVoltage": QLineEdit(self),
             "Frequency": QLineEdit(self),
             "AmpGain": QLineEdit(self),
             "WaitV": QLineEdit(self),
@@ -155,9 +155,12 @@ class MainWindow(QMainWindow):
         # Populate the upper left box with some elements
         self.add_text_field_to_layout(self.upper_left_box, "TemRes")
         self.add_text_field_to_layout(self.upper_left_box, "WaitV")
+        self.add_text_field_to_layout(self.upper_left_box, "QQ")
         self.add_text_field_to_layout(self.upper_left_box, "AvPer")
         self.add_text_field_to_layout(self.upper_left_box, "Frequency")
-        
+        self.add_text_field_to_layout(self.upper_left_box, "VScalMax")
+        self.add_text_field_to_layout(self.upper_left_box, "WaitingVoltage")
+        self.add_text_field_to_layout(self.upper_left_box, "AmpGain")
         # Command1 button
         self.button1 = QPushButton('Start', self)
         self.button1.clicked.connect(self.command1_click)
@@ -169,25 +172,24 @@ class MainWindow(QMainWindow):
         self.upper_left_box.addWidget(self.button2)
         
         # Populate the upper right box with some elements
-        self.add_text_field_to_layout(self.upper_right_box, "Volt_list")
+        self.add_text_field_to_layout(self.upper_right_box, "Volt_List")
         self.add_text_field_to_layout(self.upper_right_box, "Offset")
-        self.add_text_field_to_layout(self.upper_right_box, "TempList")
+        self.add_text_field_to_layout(self.upper_right_box, "Temp_List")
+        self.add_text_field_to_layout(self.upper_right_box, "Temp_Wait")
+        self.add_text_field_to_layout(self.upper_right_box, "N/A")
+        self.add_text_field_to_layout(self.upper_right_box, "LastTemp")
+        self.add_text_field_to_layout(self.upper_right_box, "Accuracy")
+        
         
         # Populate the lower box with some elements
         self.add_text_field_to_layout(self.lower_box, "Fold")
         self.add_text_field_to_layout(self.lower_box, "BaseName")
-        self.add_text_field_to_layout(self.lower_box, "Temp_Wait")
-        self.add_text_field_to_layout(self.lower_box, "N/A2")
-        self.add_text_field_to_layout(self.lower_box, "LastTemp")
-        self.add_text_field_to_layout(self.lower_box, "Accuracy")
-        self.add_text_field_to_layout(self.lower_box, "VScalMax")
-        self.add_text_field_to_layout(self.lower_box, "Waiting Voltage")
-        self.add_text_field_to_layout(self.lower_box, "AmpGain")
+        
         
         self.Status = QLabel('Status: Waiting', self)
         self.lower_box.addWidget(self.Status)
         self.Status.setStyleSheet("background-color: green;")
-        self.Status.setFixedSize(300, 50)  # Set the size of the label
+        self.Status.setFixedSize(400, 100)  # Set the size of the label
         self.Status.setAlignment(Qt.AlignCenter)
 
         
@@ -239,20 +241,20 @@ class MainWindow(QMainWindow):
             pass
     def connect_signals(self):
         self.text_fields["TemRes"].textChanged.connect(self.text1_change)
-        self.text_fields["N/A1"].textChanged.connect(self.text2_change)
+        self.text_fields["N/A"].textChanged.connect(self.text2_change)
         self.text_fields["AvPer"].textChanged.connect(self.text3_change)
-        self.text_fields["Volt_list"].textChanged.connect(self.text4_change)
+        self.text_fields["Volt_List"].textChanged.connect(self.text4_change)
         self.text_fields["Offset"].textChanged.connect(self.text5_change)
-        self.text_fields["TempList"].textChanged.connect(self.text6_change)
+        self.text_fields["Temp_List"].textChanged.connect(self.text6_change)
         self.text_fields["Fold"].textChanged.connect(self.text7_change)
         self.text_fields["BaseName"].textChanged.connect(self.text8_change)
         self.text_fields["Temp_Wait"].textChanged.connect(self.text9_change)
-        self.text_fields["N/A2"].textChanged.connect(self.text10_change)
+        self.text_fields["QQ"].textChanged.connect(self.text10_change)
         self.text_fields["LastTemp"].textChanged.connect(self.text11_change)
         self.text_fields["Accuracy"].textChanged.connect(self.text12_change)
         self.text_fields["Frequency"].textChanged.connect(self.text13_change)
         self.text_fields["VScalMax"].textChanged.connect(self.text14_change)
-        self.text_fields["Waiting Voltage"].textChanged.connect(self.text16_change)
+        self.text_fields["WaitingVoltage"].textChanged.connect(self.text16_change)
         self.text_fields["AmpGain"].textChanged.connect(self.text17_change)
         self.text_fields["WaitV"].textChanged.connect(self.text18_change)
     
@@ -263,7 +265,9 @@ class MainWindow(QMainWindow):
         
     def command2_click(self):
         # Simulate unloading Form1
-        self.close()
+        self.exit_flag = True
+        # self.close()
+        
     def add_labeled_textbox(self, label_text, text_var, change_handler):
         label = QLabel(label_text, self)
         text_var.textChanged.connect(change_handler)
@@ -275,72 +279,72 @@ class MainWindow(QMainWindow):
 
     def text1_change(self):
         global TemRes
-        TemRes = float(self.text1.text())
+        TemRes = float(self.text_fields["TemRes"].text())
 
     def text2_change(self):
         global SomeVar2
-        SomeVar2 = float(self.text2.text())
+        SomeVar2 = float(self.text_fields["N/A"].text())
 
     def text3_change(self):
         global AvPer
-        AvPer = float(self.text3.text())
+        AvPer = float(self.text_fields["AvPer"].text())
 
     def text4_change(self):
         global Volt_List
-        Volt_List = self.text4.text()
+        Volt_List = self.text_fields["Volt_List"].text()
 
     def text5_change(self):
         global Offset
-        Offset = float(self.text5.text())
+        Offset = float(self.text_fields["Offset"].text())
 
     def text6_change(self):
         global Temp_List
-        Temp_List = self.text6.text()
+        Temp_List = self.text_fields["Temp_List"].text()
 
     def text7_change(self):
         global Fold
-        Fold = self.text7.text()
+        Fold = self.text_fields["Fold"].text()
         
     def text8_change(self):
         global BaseName
-        BaseName = self.text8.text()
+        BaseName =self.text_fields["BaseName"].text()
 
     def text9_change(self):
         global Temp_Wait
-        Temp_Wait = float(self.text9.text())
+        Temp_Wait = float(self.text_fields["Temp_Wait"].text())
         
     def text10_change(self):
         global QQ
-        QQ = int(float(self.text10.text()))
+        QQ = int(float(self.text_fields["QQ"].text()))
 
     def text11_change(self):
         global LastTemp
-        LastTemp = float(self.text11.text())
+        LastTemp = float(self.text_fields["LastTemp"].text())
 
     def text12_change(self):
         global Accuracy
-        Accuracy = round(float(self.text12.text()), 2)
+        Accuracy = round(float(self.text_fields["Accuracy"].text()), 2)
         
     def text13_change(self):
-        Freq = float(self.text13.text())
+        Freq = float(self.text_fields["Frequency"].text())
         wrt_buf = f"APPL:SQU {Freq}"
         self.gen_id.write(wrt_buf)
 
     def text14_change(self):
         global VScalMax
-        VScalMax = float(self.text14.text())
+        VScalMax = float(self.text_fields["VScalMax"].text())
 
     def text16_change(self):
         global WaitingVoltage
-        WaitingVoltage = round(float(self.text16.text()), 1)
+        WaitingVoltage = round(float(self.text_fields["WaitingVoltage"].text()), 1)
 
     def text17_change(self):
         global AmpGain
-        AmpGain = round(float(self.text17.text()))
+        AmpGain = round(float(self.text_fields["AmpGain"].text()))
 
     def text18_change(self):
         global WaitV
-        WaitV = float(self.text18.text()) * 1000
+        WaitV = float(self.text_fields["WaitV"].text()) * 1000
 
         
     ### Oscilloscope Control ###
@@ -578,6 +582,10 @@ class MainWindow(QMainWindow):
             # Voltage cycle
             iv = 0
             while Voltage[iv] != 99999:
+                if self.exit_flag:
+                    print("Exiting function early")
+                    self.exit_flag = False
+                    return
                 self.Set_Amplitude(Voltage[iv] / AmpGain)
                 time.sleep(1)  # Sleep for 1000 milliseconds
                 time.sleep(WaitV)  # WaitV is already in seconds, no conversion needed
