@@ -8,13 +8,79 @@ import struct
 from PyQt5.QtWidgets import *
 from avaspec import *
 from PyQt5.QtCore import *
-import gpib_ctypes.gpib
-gpib_ctypes.gpib.gpib._load_lib("C:\\Users\\Abeli\\AppData\\Local\\Programs\\Python\\Python312\\Lib\\site-packages\\gpib_ctypes\\gpib")
+# import gpib_ctypes.gpib
+# gpib_ctypes.gpib.gpib._load_lib("C:\\Users\\Abeli\\AppData\\Local\\Programs\\Python\\Python312\\Lib\\site-packages\\gpib_ctypes\\gpib")
 import pyvisa
 import serial
 import json
+def Crc(message):
+        CRC16 = 65535
+        for c in message:
+            CRC16 ^= ord(c)
+            for _ in range(8):
+                if CRC16 % 2:
+                    CRC16 = (CRC16 >> 1) ^ 40961
+                else:
+                    CRC16 >>= 1
+        
+        CRCH = CRC16 >> 8
+        CRCL = CRC16 & 255
+        message += chr(CRCL) + chr(CRCH) + "xyz"
+        print(CRC16,"CRC16")
+        # return CRC16
+        return message
+def Read_Temp():
+        ADDRESS = 1
+        CODE = 3
+        A1_H = 0
+        A1_L = 1  # 1- Display; 2-SetPoint
+        N_H = 0
+        N_L = 1
+        TemRes = 100  # Define the temperature resolution variable
+        
+        ser = serial.Serial('COM1', 9600, timeout=2)  # Adjust the port and baudrate as necessary
+        print("ser: ", ser)
+        ser.reset_input_buffer()
+        time.sleep(0.3)
+        
+        message = chr(ADDRESS) + chr(CODE) + chr(A1_H) + chr(A1_L) + chr(N_H) + chr(N_L)
+        message = Crc(message)
+        
+        print(message)
+        ser.write(message.encode('latin-1'))
+        time.sleep(0.3)
+        print(message)
+        mes = ser.read(7)  # Adjust the number of bytes to read if necessary
+        print("No. of bytes: ",len(mes))
+        if len(mes) < 7:
+            raise Exception("Incomplete message received")
+        
+        read_temp = (256 * (mes[3]) + (mes[4])) / TemRes
+        
+        ser.close()
+        return read_temp
+def Set_Temp(temp):
+    TemRes=100
+    temp= int(TemRes*temp)
+    ADDRESS =1
+    CODE = 6
+    A_MSB = 0
+    A_LSB = 2
+    V_MSB = temp // 256
+    V_LSB = temp % 256
+    
+    message = chr(ADDRESS) + chr(CODE) + chr(A_MSB) + chr(A_LSB) + chr(V_MSB) + chr(V_LSB)
+    message = Crc(message)
+    
+    ser = serial.Serial('COM1', 9600, timeout=2)  # Adjust the port and baudrate as necessary
+
+    ser.write(message.encode("latin-1"))
+    time.sleep(0.2)
+    ser.close()
+    return 1
 
 
+# print("This is the Temperature: ",Read_Temp())
 Gen_id = 0
 dev_Osc, Command, param, Out_File, Out_Data, Volt_List, Temp_List, ReadBuffer = "", "", "", "", "", "", "", ""
 SSComment = ""
@@ -26,11 +92,80 @@ Temp_Wait, LastTemp, WaitV, WaitingVoltage, Accuracy, CurrentT, SetT = 0.0, 0.0,
 Num_Volt, Num_Temp, TemRes = 0, 0, 0
 Fast, AST, ASV, Expire, DCmode = False, False, False, False, False
 
-AVANTES_path = 'C:\\Windows\\System32\\notepad.exe'
-AVANTES_name = 'notepad.exe'
+AVANTES_path = "C:\\Program Files (x86)\\AvaSoft8\\avasoft8.exe"
+AVANTES_name = 'avasoft8.exe'
+rm = pyvisa.ResourceManager()
+devices = rm.list_resources()
+for device in devices:
+    print(device)
+# print(Read_Temp())
+# Set_Temp(30.0)
+# time.sleep(10)
+# print(Read_Temp())
+DCmode = False
+def Set_Offset(offset):
+    command = f"VOLT:OFFS {offset}\n"
+    send_command(command)
+def init_gen():
+    # global ser
+    global gen
+    B_G = 0
+    P_G = 10
+    N_G = 0
+    T_G = 0
+    E1_G = 1
+    E2_G = 0
+    # gpib_address = f"FPIB{B_G}::{P_G}::{N_G}::INSTR"
+    gpib_address = "GPIB0::10::INSTR"
+    gen = rm.open_resource(gpib_address)
+    
+    # gen_id = {B_G, P_G, N_G, T_G, E1_G, E2_G}
+    # ser = serial.Serial("COM1",9600,timeout = 3)
+    Set_Offset("0")
+def send_command(command):
+    if gen is not None:
+        gen.write(command)
+    else:
+        raise Exception("No connection on GPIB")
+def set_waveform(form):
+    command = f"FUNC:SHAP {form}\n"
+    send_command(command)
+def set_freq(freq):
+    command = f"FREQ {freq}"
+    send_command(command)
+    
+def set_amplitude(amplitude, freq):
+    global DCmode
+    if amplitude != 0:
+        if DCmode:
+            command = f"APPL:SQU {freq}\n"
+            send_command(command)
+            command = f"VOLT {amplitude}\n"
+            send_command(command)
+            DCmode = False
+        else:
+            command = f"VOLT {amplitude}\n"
+            send_command(command)
+    else:
+        DCmode = True
+        command = f"APPLy:DC DEF, DEF, O\n"
+        send_command(command)
+# init_gen() 
+init_gen()
+set_freq(1000)
+set_amplitude(2.1,1000)
 
-print("Number of Devices connected ",AVS_UpdateUSBDevices())
 
+
+# set_freq(120)
+# set_amplitude(0.2,110)         
+# print(AVS_Init(0))
+# print("Number of Devices connected ",AVS_UpdateUSBDevices())
+# print(AVS_GetList())
+# deviceId = AVS_GetList()[0]
+# AVS_Handle = AVS_Activate(deviceId)
+# print(AVS_Handle)
+# print(AVS_MeasureCallback(AVS_Handle,None,1))
 ### Temperature Cycle ###
   
 
@@ -38,36 +173,7 @@ import subprocess
 import psutil
 import pygetwindow as gw
 ##### Opening of AvaSoft #####
-def is_application_open(name):
-    """Check if there is any running process that contains the given name."""
-    for proc in psutil.process_iter(['name']):
-        if name.lower() in proc.info['name'].lower():
-            try:
-                # Focus the window using the process ID and window title
-                windows = gw.getWindowsWithTitle("Task Manager")
-                if not windows:
-                    print(f"No windows found with title containing: {name}")
-                for win in windows:
-                    print(f"Attempting to activate window: {win.title}")
-                    win.activate()
-                    win.maximize()  # Optional: Maximize the window
-                    return True
-            except Exception as e:
-                print("Error bringing the window to front:", e)
-            return True
-    return False
 
-def open_application(path, name):
-    #Opens an application if it's not already running.
-    if not is_application_open(name):
-        subprocess.Popen(path)
-        time.sleep(5)  # Wait for the application to open
-    # else:
-    #     pyautogui.alert(f'{name} is already running.')
-
-def type_in_application(text):
-    """Types a string of text into the open application."""
-    pyautogui.typewrite(text, interval=0.1)
        
 ##### Opening UI ########
 
@@ -346,7 +452,37 @@ class MainWindow(QMainWindow):
         global WaitV
         WaitV = float(self.text_fields["WaitV"].text()) * 1000
 
-        
+    ### Window Controll
+    def is_application_open(self,name):
+        """Check if there is any running process that contains the given name."""
+        for proc in psutil.process_iter(['name']):
+            if name.lower() in proc.info['name'].lower():
+                try:
+                    # Focus the window using the process ID and window title
+                    windows = gw.getWindowsWithTitle("Task Manager")
+                    if not windows:
+                        print(f"No windows found with title containing: {name}")
+                    for win in windows:
+                        print(f"Attempting to activate window: {win.title}")
+                        win.activate()
+                        win.maximize()  # Optional: Maximize the window
+                        return True
+                except Exception as e:
+                    print("Error bringing the window to front:", e)
+                return True
+        return False
+
+    def open_application(self,path, name):
+        #Opens an application if it's not already running.
+        if not self.is_application_open(name):
+            subprocess.Popen(path)
+            time.sleep(5)  # Wait for the application to open
+        # else:
+        #     pyautogui.alert(f'{name} is already running.')
+
+    def type_in_application(self,text):
+        """Types a string of text into the open application."""
+        pyautogui.typewrite(text, interval=0.1)    
     ### Oscilloscope Control ###
     def Set_WaveForm(self, freq):
         wrt_buf = f"FREQ {freq}"
@@ -373,7 +509,7 @@ class MainWindow(QMainWindow):
         self.gen_id.write(wrt_buf)
 
     def Init_Gen(self):
-        self.set_offset("0")
+        self.Set_Offset("0")
         
         
     ### ###
@@ -527,16 +663,42 @@ class MainWindow(QMainWindow):
         
         ser.close()
         return read_temp
-    
+    def Init_COM(self,port):
+        try:
+            ser = serial.Serial(
+                port=port,
+                baudrate=9600,
+                parity=serial.PARITY_NONE,
+                stopbits=serial.STOPBITS_ONE,
+                bytesize=serial.EIGHTBITS,
+                timeout=1
+            )
+            print(f"Port {port} opened successfully.")
+            return ser
+        except Exception as e:
+            print(f"Error opening port {port}: {e}")
+            return None
+
+    def close_com(ser):
+        if ser and ser.is_open:
+            ser.close()
+            print("Port closed successfully.")
+        else:
+            print("Port is not open.")
     def command1_click(self):
         self.button1.setEnabled(False)
         self.button2.setEnabled(True)
-        self.status = QLabel('Initiation', self)
+        self.Status = QLabel('Initiation', self)
         
         # Establish Connection to AVANTES Software
-        AVS_Init(0)
+        print(AVS_Init(0))
+        print("Number of Devices connected ",AVS_UpdateUSBDevices())
+        print(AVS_GetList())
+        deviceId = AVS_GetList()[0]
+        AVS_Handle = AVS_Activate(deviceId)
+        print("AVS_Handle: ",AVS_Handle)
         # Open or focus the application
-        open_application(AVANTES_path, AVANTES_name)
+        self.open_application(AVANTES_path, AVANTES_name)
         # type_in_application('Hello, this is a test!') ## Commented out
         # pyautogui.press('enter')
         # You can also combine key presses for shortcuts
@@ -553,9 +715,9 @@ class MainWindow(QMainWindow):
         self.Fill_Volt(Volt_List)
         self.Fill_Temp(Temp_List)
         Port = 1  # sign = 10
-        self.Init_COM(Port)
-        self.Init_Gen()
-        self.Freq = float(self.text13.text())
+        # self.Init_COM(Port)
+        # self.Init_Gen()
+        self.Freq = float(self.text_fields["Frequency"].text())
         wrt_buf = f"APPL:SQU {self.Freq}"
         self.gen_id.write(wrt_buf)
         self.Set_Amplitude(Vmax)
@@ -594,7 +756,7 @@ class MainWindow(QMainWindow):
                 
                 pyautogui.hotkey('ctrl', 's')
                 time.sleep(2)
-                type_in_application(SSComent)
+                self.type_in_application(SSComent)
                 time.sleep(2)
                 pyautogui.hotkey("enter")
                 time.sleep(2)
@@ -614,7 +776,7 @@ def main():
     window = MainWindow()
     sys.exit(app.exec_())
 
-if __name__ == '__main__':
-    main()
+# if __name__ == '__main__':
+#     main()
     
    
