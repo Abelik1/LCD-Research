@@ -11,7 +11,11 @@ from PyQt5.QtCore import *
 import pyvisa
 import serial
 import json
+  
 
+import subprocess
+import psutil
+import pygetwindow as gw
 
 # print("This is the Temperature: ",Read_Temp())
 
@@ -54,15 +58,156 @@ DCmode = False
 # print(AVS_Handle)
 # print(AVS_MeasureCallback(AVS_Handle,None,1))
 ### Temperature Cycle ###
-  
 
-import subprocess
-import psutil
-import pygetwindow as gw
+
+
 ##### Opening of AvaSoft #####
 
-       
-##### Opening UI ########
+##### Generator ########
+class Generator():
+    def __init__(self, fake_signal):
+
+        self.Fake_Signal = fake_signal
+        # global ser
+        B_G = 0
+        P_G = 10
+        N_G = 0
+        T_G = 0
+        E1_G = 1
+        E2_G = 0
+        # gpib_address = f"FPIB{B_G}::{P_G}::{N_G}::INSTR"
+        gpib_address = "GPIB0::10::INSTR"
+        if self.Fake_Signal == True:
+            print("connected to generator")
+        else:
+            self.gen = self.rm.open_resource(gpib_address)
+
+        # ser = serial.Serial("COM1",9600,timeout = 3)
+        self.Set_Offset("0")
+        
+    def send_command(self,command):
+        if self.Fake_Signal == False:
+            if self.gen is not None:
+                self.gen.write(command)
+            else:
+                raise Exception("No connection on GPIB")
+        else:
+            pass    
+    def Set_Waveform(self,form):
+        if self.Fake_Signal == False:
+            command = f"FUNC:SHAP {form}\n"
+            self.send_command(command)
+        else:
+            pass
+    def Set_Freq(self,freq):
+        if self.Fake_Signal == False:
+            command = f"FREQ {freq}"
+            self.send_command(command)
+        else:
+            pass
+    def Set_Amplitude(self,amplitude, freq):
+        if self.Fake_Signal == False:
+            global DCmode
+            if amplitude != 0:
+                if DCmode:
+                    command = f"APPL:SQU {freq}\n"
+                    self.send_command(command)
+                    command = f"VOLT {amplitude}\n"
+                    self.send_command(command)
+                    DCmode = False
+                else:
+                    command = f"VOLT {amplitude}\n"
+                    self.send_command(command)
+            else:
+                DCmode = True
+                command = f"APPLy:DC DEF, DEF, O\n"
+                self.send_command(command)
+        else:
+            pass  
+    def Set_Offset(self,offset):
+        if self.Fake_Signal == False:
+            command = f"VOLT:OFFS {offset}\n"
+            self.send_command(command)
+        else:
+            pass      
+          
+# #### temperature control ########
+class Temp_Probe:        
+    def __init__(self, fake_signal):
+        self.Fake_Signal = fake_signal
+        
+    def Crc(self,message):
+        CRC16 = 65535
+        for c in message:
+            CRC16 ^= ord(c)
+            for _ in range(8):
+                if CRC16 % 2:
+                    CRC16 = (CRC16 >> 1) ^ 40961
+                else:
+                    CRC16 >>= 1
+        
+        CRCH = CRC16 >> 8
+        CRCL = CRC16 & 255
+        message += chr(CRCL) + chr(CRCH) + "xyz"
+        print(CRC16,"CRC16")
+        # return CRC16
+        return message
+    
+    def Read_Temp(self):
+        if self.Fake_Signal == False:
+            ADDRESS = 1
+            CODE = 3
+            A1_H = 0
+            A1_L = 1  # 1- Display; 2-SetPoint
+            N_H = 0
+            N_L = 1
+            TemRes = 100  # Define the temperature resolution variable
+            
+            ser = serial.Serial('COM1', 9600, timeout=1)  # Adjust the port and baudrate as necessary
+            ser.reset_input_buffer()
+            time.sleep(0.1)
+            
+            message = chr(ADDRESS) + chr(CODE) + chr(A1_H) + chr(A1_L) + chr(N_H) + chr(N_L)
+            message = self.Crc(message)
+            
+            ser.write(message.encode('latin-1'))
+            time.sleep(0.1)
+            mes = ser.read(7)  # Adjust the number of bytes to read if necessary
+            if len(mes) < 7:
+                raise Exception("Incomplete message received for Temperature")
+            
+            read_temp = (256 * (mes[3]) + (mes[4])) / TemRes
+            
+            ser.close()
+            return read_temp
+        else:
+            return 20.0
+            
+    
+    def Set_Temp(self,temp):
+        if self.Fake_Signal == False:
+            TemRes=100
+            temp= int(TemRes*temp)
+            ADDRESS =1
+            CODE = 6
+            A_MSB = 0
+            A_LSB = 2
+            V_MSB = temp // 256
+            V_LSB = temp % 256
+            
+            message = chr(ADDRESS) + chr(CODE) + chr(A_MSB) + chr(A_LSB) + chr(V_MSB) + chr(V_LSB)
+            message = self.Crc(message)
+            
+            ser = serial.Serial('COM1', 9600, timeout=1)  # Adjust the port and baudrate as necessary
+
+            ser.write(message.encode("latin-1"))
+            time.sleep(0.2)
+            ser.close()
+            return 1
+        else:
+            return 1
+        
+# #### Opening UI ########
 
 class MainWindow(QMainWindow):
     def __init__(self):
@@ -213,7 +358,7 @@ class MainWindow(QMainWindow):
             layout.addWidget(label)
             layout.addWidget(field)
 
-    def save_values(self):
+    def save_values(self):              
         values = {label: field.text() for label, field in self.text_fields.items()}
         with open("values.json", "w") as f:
             json.dump(values, f)
@@ -227,72 +372,7 @@ class MainWindow(QMainWindow):
                         self.text_fields[label].setText(value)
         except FileNotFoundError:
             pass
-    def connect_signals(self):
-        self.text_fields["TempRes"].textChanged.connect(self.text1_change)
-        self.text_fields["Volt_List"].textChanged.connect(self.text4_change)
-        self.text_fields["Offset"].textChanged.connect(self.text5_change)
-        self.text_fields["Temp_List"].textChanged.connect(self.text6_change)
-        self.text_fields["Folder"].textChanged.connect(self.text7_change)
-        self.text_fields["BaseName"].textChanged.connect(self.text8_change)
-        self.text_fields["Temp_Wait"].textChanged.connect(self.text9_change)
-        self.text_fields["LastTemp"].textChanged.connect(self.text11_change)
-        self.text_fields["Accuracy"].textChanged.connect(self.text12_change)
-        self.text_fields["Frequency"].textChanged.connect(self.text13_change)
-        self.text_fields["WaitingVoltage"].textChanged.connect(self.text16_change)
-        self.text_fields["AmpGain"].textChanged.connect(self.text17_change)
-        self.text_fields["WaitV"].textChanged.connect(self.text18_change)
-
-    def text1_change(self):
-        global TemRes
-        TemRes = float(self.text_fields["TempRes"].text())
-
-    def text4_change(self):
-        global Volt_List
-        Volt_List = self.text_fields["Volt_List"].text()
-
-    def text5_change(self):
-        global Offset
-        Offset = float(self.text_fields["Offset"].text())
-
-    def text6_change(self):
-        global Temp_List
-        Temp_List = self.text_fields["Temp_List"].text()
-
-    def text7_change(self):
-        global Folder
-        Folder = self.text_fields["Folder"].text()
-        
-    def text8_change(self):
-        global BaseName
-        BaseName =self.text_fields["BaseName"].text()
-
-    def text9_change(self):
-        global Temp_Wait
-        Temp_Wait = float(self.text_fields["Temp_Wait"].text())
-
-    def text11_change(self):
-        global LastTemp
-        LastTemp = float(self.text_fields["LastTemp"].text())
-
-    def text12_change(self):
-        global Accuracy
-        Accuracy = round(float(self.text_fields["Accuracy"].text()), 2)
-        
-    def text13_change(self):
-        global Freq
-        Freq = float(self.text_fields["Frequency"].text())
-
-    def text16_change(self):
-        global WaitingVoltage
-        WaitingVoltage = round(float(self.text_fields["WaitingVoltage"].text()), 1)
-
-    def text17_change(self):
-        global AmpGain
-        AmpGain = round(float(self.text_fields["AmpGain"].text()))
-
-    def text18_change(self):
-        global WaitV
-        WaitV = float(self.text_fields["WaitV"].text())
+    
 
     ### Window Control ###
     # def is_application_open(self,name):
@@ -369,15 +449,15 @@ class MainWindow(QMainWindow):
             self.label.setText(f"{self.Mess} ( time left: {round(sec - i)} sec )")
             QApplication.processEvents()
 
-    def Wait_Temp(self):
-        self.Mess = "Waiting for Accuracy"
-        i = 0
-        while abs(self.SetT - self.CurrentT) > self.Accuracy:
-            time.sleep(1)
-            self.label.setText(f"{self.Mess} {i} sec")
-            QApplication.processEvents()
-            i += 1
-            self.CurrentT = self.read_temp()
+    # def Wait_Temp(self, temp_probe):
+    #     self.Mess = "Waiting for Accuracy"
+    #     i = 0
+    #     while abs(self.SetT - self.CurrentT) > self.Accuracy:
+    #         time.sleep(1)
+    #         self.label.setText(f"{self.Mess} {i} sec")
+    #         QApplication.processEvents()
+    #         i += 1
+    #         self.CurrentT = temp_probe.read_temp()
 
     def Fill_Volt(self,tlist):
         TL = tlist.strip()
@@ -516,146 +596,13 @@ class MainWindow(QMainWindow):
         print("Waiting for temperature to stabilize...")
         self.Status.setText("Waiting for temperature to stabilize...")
         time.sleep(Temp_Wait)
-        
-    def Crc(self,message):
-        CRC16 = 65535
-        for c in message:
-            CRC16 ^= ord(c)
-            for _ in range(8):
-                if CRC16 % 2:
-                    CRC16 = (CRC16 >> 1) ^ 40961
-                else:
-                    CRC16 >>= 1
-        
-        CRCH = CRC16 >> 8
-        CRCL = CRC16 & 255
-        message += chr(CRCL) + chr(CRCH) + "xyz"
-        print(CRC16,"CRC16")
-        # return CRC16
-        return message
-    
-    def Read_Temp(self):
-        if self.Fake_Signal == False:
-            ADDRESS = 1
-            CODE = 3
-            A1_H = 0
-            A1_L = 1  # 1- Display; 2-SetPoint
-            N_H = 0
-            N_L = 1
-            TemRes = 100  # Define the temperature resolution variable
-            
-            ser = serial.Serial('COM1', 9600, timeout=1)  # Adjust the port and baudrate as necessary
-            ser.reset_input_buffer()
-            time.sleep(0.1)
-            
-            message = chr(ADDRESS) + chr(CODE) + chr(A1_H) + chr(A1_L) + chr(N_H) + chr(N_L)
-            message = self.Crc(message)
-            
-            ser.write(message.encode('latin-1'))
-            time.sleep(0.1)
-            mes = ser.read(7)  # Adjust the number of bytes to read if necessary
-            if len(mes) < 7:
-                raise Exception("Incomplete message received for Temperature")
-            
-            read_temp = (256 * (mes[3]) + (mes[4])) / TemRes
-            
-            ser.close()
-            return read_temp
-        else:
-            return 20.0
-            
-    
-    def Set_Temp(self,temp):
-        if self.Fake_Signal == False:
-            TemRes=100
-            temp= int(TemRes*temp)
-            ADDRESS =1
-            CODE = 6
-            A_MSB = 0
-            A_LSB = 2
-            V_MSB = temp // 256
-            V_LSB = temp % 256
-            
-            message = chr(ADDRESS) + chr(CODE) + chr(A_MSB) + chr(A_LSB) + chr(V_MSB) + chr(V_LSB)
-            message = self.Crc(message)
-            
-            ser = serial.Serial('COM1', 9600, timeout=1)  # Adjust the port and baudrate as necessary
 
-            ser.write(message.encode("latin-1"))
-            time.sleep(0.2)
-            ser.close()
-            return 1
-        else:
-            return 1
-    
-    def Set_Offset(self,offset):
-        if self.Fake_Signal == False:
-            command = f"VOLT:OFFS {offset}\n"
-            self.send_command(command)
-        else:
-            pass
-        
-    def Init_Gen(self):
-        # global ser
-        B_G = 0
-        P_G = 10
-        N_G = 0
-        T_G = 0
-        E1_G = 1
-        E2_G = 0
-        # gpib_address = f"FPIB{B_G}::{P_G}::{N_G}::INSTR"
-        gpib_address = "GPIB0::10::INSTR"
-        if self.Fake_Signal == True:
-            print("connected to generator")
-        else:
-            self.gen = self.rm.open_resource(gpib_address)
 
-        # ser = serial.Serial("COM1",9600,timeout = 3)
-        self.Set_Offset("0")
-        
-    def send_command(self,command):
-        if self.Fake_Signal == False:
-            if self.gen is not None:
-                self.gen.write(command)
-            else:
-                raise Exception("No connection on GPIB")
-        else:
-            pass    
-    def Set_Waveform(self,form):
-        if self.Fake_Signal == False:
-            command = f"FUNC:SHAP {form}\n"
-            self.send_command(command)
-        else:
-            pass
-    def Set_Freq(self,freq):
-        if self.Fake_Signal == False:
-            command = f"FREQ {freq}"
-            self.send_command(command)
-        else:
-            pass
-    def Set_Amplitude(self,amplitude, freq):
-        if self.Fake_Signal == False:
-            global DCmode
-            if amplitude != 0:
-                if DCmode:
-                    command = f"APPL:SQU {freq}\n"
-                    self.send_command(command)
-                    command = f"VOLT {amplitude}\n"
-                    self.send_command(command)
-                    DCmode = False
-                else:
-                    command = f"VOLT {amplitude}\n"
-                    self.send_command(command)
-            else:
-                DCmode = True
-                command = f"APPLy:DC DEF, DEF, O\n"
-                self.send_command(command)
-        else:
-            pass
             
     ### Run MAIN Program ###        
     def command1_click(self):
         self.save_values()
+        self.Form_Load()
         global TemRes,Volt_List,Accuracy,Offset,Temp_List,Temp_Wait,AmpGain,WaitV,Freq
         self.button1.setEnabled(False)
         self.button2.setEnabled(True)
@@ -690,10 +637,12 @@ class MainWindow(QMainWindow):
         self.Fill_Volt(Volt_List)
         self.Fill_Temp(Temp_List)
         Port = 1  # sign = 10
-        self.Init_Gen()
+        generator = Generator(self.Freq, self.Vmax, self.Fake_Signal)
+        temp_Probe = Temp_Probe(self.Fake_Signal)
+        
         self.Freq = float(self.text_fields["Frequency"].text())
-        self.Set_Freq(self.Freq)
-        self.Set_Amplitude(self.Vmax,self.Freq)
+        generator.Set_Freq(self.Freq)
+        generator.Set_Amplitude(self.Vmax,self.Freq)
          
         DCmode = False
         FolderName = Folder + BaseName
@@ -704,13 +653,13 @@ class MainWindow(QMainWindow):
             SetT = Temperature[it]
             T_Name = FolderName + "T" + str(int((Temperature[it] * TemRes) + 1 / TemRes)).strip()
             Out_Data = T_Name + ".dat"
-            self.Set_Temp(SetT)
+            temp_Probe.Set_Temp(SetT)
             
             if it != 0:
                 self.Waiting(Temp_Wait)
             self.Status.setText("Waiting for Temperature")
             # self.AVS_Measure()
-            CurrentT = self.Read_Temp()
+            CurrentT = temp_Probe.Read_Temp()
             if abs(SetT - CurrentT) > Accuracy and True: 
                 self.WaitTemp()
             
@@ -721,7 +670,7 @@ class MainWindow(QMainWindow):
                     print("Exiting function early")
                     self.exit_flag = False
                     return
-                self.Set_Amplitude(Voltage[iv] / AmpGain,self.Freq)
+                generator.Set_Amplitude(Voltage[iv] / AmpGain,self.Freq)
                 if self.Fake_Signal == False:
                     
                     time.sleep(1)  # Sleep for 1000 milliseconds
