@@ -18,8 +18,7 @@ class Generator():
     def Set_Offset(self,offset):
         command = f"VOLT:OFFS {offset}\n"
         self.send_command(command)
-        
-        
+             
     def send_command(self,command):
         if self.gen is not None:
             self.gen.write(command)
@@ -50,21 +49,12 @@ class Generator():
             self.send_command(command)
 
 class Mock_Generator():
-    def __init__(self):
-        B_G = 0
-        P_G = 10
-        N_G = 0
-        T_G = 0
-        E1_G = 1
-        E2_G = 0
-        self.rm = pyvisa.ResourceManager()
-        # gpib_address = f"FPIB{B_G}::{P_G}::{N_G}::INSTR"
-        gpib_address = "GPIB0::10::INSTR"
-        print("Connected to generator")
-        self.gen = self.rm.open_resource(gpib_address)
+    def __init__(self,mp):
+        self.mp = mp
 
         # ser = serial.Serial("COM1",9600,timeout = 3)
         self.Set_Offset("0")
+        return
     def Set_Offset(self,offset):
         return  
         

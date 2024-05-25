@@ -1,14 +1,18 @@
 import time
 import serial
 class Temp_Probe(): 
+    def __init__(self,mp):
+        self.mp = mp
     def Wait_Temp(self):
         self.Mess = "Waiting for Accuracy"
         i = 0
-        while abs(self.SetT - self.CurrentT) > self.Accuracy:
+        self.CurrentT = self.Read_Temp()
+        while abs(self.mp.SetT - self.CurrentT) > self.Accuracy:
             time.sleep(1)
-            self.label.setText(f"{self.Mess} {i} sec")
+            self.mp.Status.setText(f"{self.Mess} {i} sec") # Used if you have a PyQt application running
+            self.mp.Status.update()
             i += 1
-            self.CurrentT = self.read_temp()
+            self.CurrentT = self.Read_Temp()
     def Crc(self,message):
         CRC16 = 65535
         for c in message:
@@ -81,15 +85,20 @@ class Temp_Probe():
             return 1
         
         
-class Mock_Temp_Probe(): 
+class Mock_Temp_Probe():
+    def __init__(self,mp):
+         self.mp = mp
     def Wait_Temp(self):
+        global Accuracy
         self.Mess = "Waiting for Accuracy"
         i = 0
-        while abs(self.SetT - self.CurrentT) > self.Accuracy:
+        self.CurrentT = self.Read_Temp()
+        while abs(self.mp.SetT - self.CurrentT) > self.mp.Accuracy:
             time.sleep(1)
-            self.label.setText(f"{self.Mess} {i} sec")
+            self.ui.Status.setText(f"{self.Mess} {i} sec")
+            self.ui.Status.update()
             i += 1
-            self.CurrentT = self.SetT
+            self.CurrentT = self.mp.SetT
     
     def Read_Temp(self):
         return 20.0
