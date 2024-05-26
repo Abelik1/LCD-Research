@@ -1,4 +1,5 @@
 import pyvisa
+# from Visual_Basic_Python import MainProgram
 class Generator():
     def __init__(self):
         B_G = 0
@@ -49,9 +50,7 @@ class Generator():
             self.send_command(command)
 
 class Mock_Generator():
-    def __init__(self,mp):
-        self.mp = mp
-
+    def __init__(self):
         # ser = serial.Serial("COM1",9600,timeout = 3)
         self.Set_Offset("0")
         return

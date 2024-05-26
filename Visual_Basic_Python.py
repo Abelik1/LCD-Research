@@ -17,16 +17,15 @@ import subprocess
 import psutil
 import pygetwindow as gw
 
-# print("This is the Temperature: ",Read_Temp())
 
-dev_Osc, Command, param, Out_File, Out_Data, Volt_List, Temp_List, ReadBuffer = "", "", "", "", "", "", "", ""
-Frequency = [0.0] * 3 #300
-Voltage = [0.0] * 3 #300
-Temperature = [0.0] * 3 #5000
-Freq, Amplitude, Offset, AmpGain, AvPer, VScal, VScalMax, Vmax = 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0
-Temp_Wait, LastTemp, WaitV, WaitingVoltage, Accuracy, CurrentT, SetT = 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0
+# dev_Osc, Command, param, Out_File, Out_Data, Volt_List, Temp_List, ReadBuffer = "", "", "", "", "", "", "", ""
+# Frequency = [0.0] * 5 #300
+# Voltage = [0.0] * 5 #300
+# Temperature = [0.0] * 5 #5000
+# Freq, Amplitude, Offset, AmpGain, AvPer, VScal, VScalMax, Vmax = 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0
+# Temp_Wait, LastTemp, WaitV, WaitingVoltage, Accuracy, CurrentT, SetT = 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0
 # Num_Volt, Num_Temp, TemRes = 0, 0, 0
-Fast, AST, ASV, Expire, DCmode = False, False, False, False, False
+# Fast, AST, ASV, Expire, DCmode = False, False, False, False, False
 
 AVANTES_path = "C:\\Program Files (x86)\\AvaSoft8\\avasoft8.exe"
 Avantes_exe = 'avasoft8.exe'
@@ -65,10 +64,25 @@ class MainProgram(QThread):
     update_status = pyqtSignal(str)
     finished = pyqtSignal()
 
-    def __init__(self,ui, parent=None):
-        global Accuracy
+    def __init__(self,ui,Freq,Volt_List,Temp_List,Accuracy,WaitV,LastTemp,
+                Fake_Signal,AmpGain,Folder,BaseName, parent=None):
         super(MainProgram, self).__init__(parent)
         self.ui = ui
+        self.Freq = Freq
+        self.Volt_List =Volt_List
+        self.Temp_List =Temp_List
+        self.Accuracy = Accuracy
+        self.WaitV =WaitV
+        self.LastTemp =LastTemp
+        self.Fake_Signal=Fake_Signal
+        self.AmpGain = AmpGain
+        self.Folder = Folder
+        self.BaseName = BaseName
+        
+        self.Frequency = [0.0] * 5 #300
+        self.Voltage = [0.0] * 5 #300
+        self.Temperature = [0.0] * 5 #5000
+        
         self._is_running = True
     def run(self):
         try:
@@ -80,14 +94,12 @@ class MainProgram(QThread):
         app_control = AppControl()
         self.ui.save_values()
         self.ui.Form_Load()
-        if self.ui.Fake_Signal:
-            generator = Mock_Generator(mp = self)
-            temp_probe = Mock_Temp_Probe(mp = self)
-        elif self.ui.Fake_Signal:
-            generator = Generator(mp =self)
-            temp_probe = Temp_Probe(mp = self)
-            
-        global TemRes,Volt_List,Accuracy,Offset,Temp_List,Temp_Wait,AmpGain,WaitV,Freq
+        if self.Fake_Signal:
+            generator = Mock_Generator()
+            temp_probe = Mock_Temp_Probe(ui = self.ui)
+        elif self.Fake_Signal:
+            generator = Generator()
+            temp_probe = Temp_Probe(ui=self.ui)
         
         self.ui.start_btn.setEnabled(False)
         self.ui.stop_btn.setEnabled(True)
@@ -96,17 +108,18 @@ class MainProgram(QThread):
         self.ui.Status.update()
         
         # Establish Connection to AVANTES Software
-        if self.ui.Fake_Signal == True:
+        if self.Fake_Signal:
             print("connected to AVS_Spec")
             self.ui.Status.setText("Connected to AVS_Spec")
             self.ui.Status.update()
         else:
-            print(AVS_Init(0))
-            print("Number of Devices connected ",AVS_UpdateUSBDevices())
-            print(AVS_GetList())
-            deviceId = AVS_GetList()[0]
-            AVS_Handle = AVS_Activate(deviceId)
-            print("AVS_Handle: ",AVS_Handle)
+            # print(AVS_Init(0))
+            # print("Number of Devices connected ",AVS_UpdateUSBDevices())
+            # print(AVS_GetList())
+            # deviceId = AVS_GetList()[0]
+            # AVS_Handle = AVS_Activate(deviceId)
+            # print("AVS_Handle: ",AVS_Handle)
+            pass
             
         # Open or focus the application
         app_control.open_application(AVANTES_path, Avantes_exe,Avantes_name)
@@ -119,60 +132,139 @@ class MainProgram(QThread):
         # msg.setStandardButtons(QMessageBox.Ok)
         # msg.exec_()
         
-        self.ui.Fill_Volt(Volt_List)
-        self.ui.Fill_Temp(Temp_List)
+        self.Fill_Volt(self.Volt_List)
+        self.Fill_Temp(self.Temp_List)
         Port = 1  # sign = 10
-        self.ui.Freq = float(self.ui.text_fields["Frequency"].text())
-        generator.Set_Freq(self.ui.Freq)
-        generator.Set_Amplitude(self.ui.Vmax,self.ui.Freq)
+        self.Freq = float(self.ui.text_fields["Frequency"].text())
+        generator.Set_Freq(self.Freq)
+        generator.Set_Amplitude(self.Vmax,self.Freq)
          
         DCmode = False
-        FolderName = Folder + BaseName
+        FolderName = self.Folder + self.BaseName
         TemRes = 100
         ### BEGIN Temperature Cicle ###
-        for self.SetT in Temperature:
+        for SetT in self.Temperature:
             # SetT = Temperature[it]
-            T_Name = FolderName + "T" + str(int((self.SetT * TemRes) + 1 / TemRes)).strip()
+            T_Name = FolderName + "T" + str(int((SetT * TemRes) + 1 / TemRes)).strip()
             Out_Data = T_Name + ".dat"
-            temp_probe.Set_Temp(self.SetT)
+            temp_probe.Set_Temp(SetT)
             
-            temp_probe.Wait_Temp()
+            temp_probe.Wait_Temp(SetT,self.Accuracy)
             self.ui.Status.setText("Waiting for Temperature")
             self.ui.Status.update()
             # self.ui.AVS_Measure()
             CurrentT = temp_probe.Read_Temp()
-            if abs(self.SetT - CurrentT) > self.ui.Accuracy and True: 
-                temp_probe.WaitTemp()
+            temp_probe.Wait_Temp(SetT,self.Accuracy)
             
             # Voltage cycle
             iv = 0
-            for volt in Voltage:
-                generator.Set_Amplitude(volt / AmpGain,self.ui.Freq)    
+            for volt in self.Voltage:
+                generator.Set_Amplitude(volt / self.AmpGain,self.Freq)    
                 time.sleep(1)  # Sleep for 1000 milliseconds
-                time.sleep(WaitV)  # WaitV is already in seconds, no conversion needed
+                time.sleep(self.WaitV)  # WaitV is already in seconds, no conversion needed
                 self.ui.Status.setText("V circle")
                 self.ui.Status.update()
-                SSComent = "T" + str(self.SetT)+"V"+str(volt)
-                
-                pyautogui.hotkey('ALT+F', 'S',"E")
+                SSComent = "T" + str(SetT)+"V"+str(volt)
+                time.sleep(2)
+                pyautogui.hotkey("alt+F")
                 time.sleep(1)
+                pyautogui.hotkey("S")      
+                time.sleep(3)
                 app_control.type_in_application(SSComent)
                 time.sleep(1)
                 pyautogui.hotkey("enter")
                 time.sleep(1)
-                
-                
-               
-        if LastTemp != 0:
-            temp_probe.Set_Temp(LastTemp)    
-        AVS_Done()
+ 
+        if self.LastTemp != 0:
+            temp_probe.Set_Temp(self.LastTemp)    
+        # AVS_Done()
         self.ui.Status.setText("Program END")
         self.ui.Status.update()
         print("Program Done")
         self.ui.start_btn.setEnabled(True)
         self.ui.stop_btn.setEnabled(False)
         # sys.exit()
-
+    def Fill_Volt(self,tlist):
+        TL = tlist.strip()
+        print("Tl", TL)
+        p1 = 1
+        self.Vmax=0
+        i1 = 0
+        while p1 > 0:
+            i1 += 1
+            p1 = TL.find(',') # Get position of next comma
+            p2 = TL.find('/') # Get position of next "/"
+            if p1 > 0 or p2 > 0:
+                if p1 != 0:
+                    vl1 = TL[:p1]
+                    TL = TL[p1 + 1:]
+                else:
+                    vl1 = TL
+                p2 = vl1.find('/') # Get position of next "/"
+                if p2 != 0:
+                    vol1 = float(vl1[:p2])
+                    vl1 = vl1[p2 + 1:]
+                    p2 = vl1.find('/')
+                    vols = float(vl1[:p2])
+                    vol2 = float(vl1[p2 + 1:])
+                    if vol1 > vol2:
+                        vols = -vols
+                    for vol in range(int(vol1), int(vol2), int(vols)):
+                        self.Voltage.append(vol)
+                        i1 += 1
+                    i1 -= 1
+                else:
+                    self.Voltage.append(float(vl1))
+                    if self.Voltage[i1] > self.Vmax:
+                        self.Vmax = self.Voltage[i1]
+            else:
+                self.Voltage[i1] = float(TL)
+                if self.Voltage[i1] > self.Vmax:
+                    self.Vmax = self.Voltage[i1]
+        self.Num_Volt = i1
+        
+    def Fill_Temp(self,tlist):
+        Num_Temp = 0
+    
+        TL = tlist.strip()
+        i5 = 0
+        
+        while TL:
+            i5 += 1
+            p5 = TL.find(',')
+            p6 = TL.find('/')
+            
+            if p5 > 0 or p6 > 0:
+                if p5 != -1:
+                    TL1 = TL[:p5]
+                    TL = TL[p5 + 1:]
+                else:
+                    TL1 = TL
+                    TL = ""
+                
+                p6 = TL1.find('/')
+                if p6 != -1:
+                    tem1 = float(TL1[:p6])
+                    TL1 = TL1[p6 + 1:]
+                    p6 = TL1.find('/')
+                    tems = float(TL1[:p6])
+                    tem2 = float(TL1[p6 + 1:])
+                    if tem1 > tem2:
+                        tems = -tems
+                    vol = tem1
+                    while (vol <= tem2 and tems > 0) or (vol >= tem2 and tems < 0):
+                        self.Temperature[i5] = vol
+                        i5 += 1
+                        vol += tems
+                    i5 -= 1
+                else:
+                    self.Temperature[i5] = float(TL1)
+            else:
+                self.Temperature[i5] = float(TL)
+                TL = ""
+        
+        Num_Temp = i5
+           
     def stop(self):
         self._is_running = False
        
@@ -202,16 +294,14 @@ class MainWindow(QMainWindow):
             "LastTemp": QLineEdit(self),
             "Accuracy": QLineEdit(self),
             "Frequency": QLineEdit(self),
-            "WaitingVoltage": QLineEdit(self),
+            # "WaitingVoltage": QLineEdit(self),
             "AmpGain": QLineEdit(self),
             "WaitV": QLineEdit(self),
         } 
         self.initUI()
         
         self.load_values()
-        
-        for field in self.text_fields.values():
-            field.setFixedSize(200, 20)
+
             
         self.Form_Load()      
    
@@ -228,26 +318,41 @@ class MainWindow(QMainWindow):
         self.lower_box = QVBoxLayout()
         
         # Populate the upper left box with some elements
-        self.add_text(self.upper_left_box, "TempRes")
-        self.add_text(self.upper_left_box, "WaitV")
-        self.add_text(self.upper_left_box, "Frequency")
-        self.add_text(self.upper_left_box, "WaitingVoltage")
-        self.add_text(self.upper_left_box, "AmpGain")
+        self.add_text(self.upper_left_box, "TempRes", "Temperature Resolution") # add_text(location , text_field_name, Label Name)
+        self.add_text(self.upper_left_box, "WaitV", "Voltage wait time")
+        self.add_text(self.upper_left_box, "Frequency", "Frequency")
+        # self.add_text(self.upper_left_box, "WaitingVoltage","")
+        self.add_text(self.upper_left_box, "AmpGain","Amp Gain")
         
         
         # Populate the upper right box with some elements
-        self.add_text(self.upper_right_box, "Volt_List")
-        self.add_text(self.upper_right_box, "Offset")
-        self.add_text(self.upper_right_box, "Temp_List")
-        self.add_text(self.upper_right_box, "Temp_Wait")
-        self.add_text(self.upper_right_box, "LastTemp")
-        self.add_text(self.upper_right_box, "Accuracy")
+        self.add_text(self.upper_right_box, "Volt_List"," Volt List")
+        self.add_text(self.upper_right_box, "Offset", "Offset")
+        self.add_text(self.upper_right_box, "Temp_List", "Temperature list")
+        self.add_text(self.upper_right_box, "Temp_Wait", "Time to wait for Temperature")
+        self.add_text(self.upper_right_box, "LastTemp","Last Temperature")
+        self.add_text(self.upper_right_box, "Accuracy", "Accuracy")
         
-        
+        for field in self.text_fields.values():
+            field.setFixedSize(200, 20)
+            
         # Populate the lower box with some elements
-        self.add_text(self.lower_box, "Folder")
-        self.add_text(self.lower_box, "BaseName")
+        Folder_Label = QLabel("Folder")
+        Folder_Label.setFixedSize(200,20)
+        Folder_Field = self.text_fields["Folder"]
+        Folder_Field.setFixedSize(300,20)
+        self.lower_box.addWidget(Folder_Label)
+        self.lower_box.addWidget(Folder_Field)
         
+        BaseName_Label = QLabel("BaseName")
+        BaseName_Label.setFixedSize(200,20)
+        BaseName_Field = self.text_fields["BaseName"]
+        BaseName_Field.setFixedSize(200,20)
+        self.lower_box.addWidget(BaseName_Label)
+        self.lower_box.addWidget(BaseName_Field)
+        
+        BaseName_Label.update()
+        BaseName_Field.update()
         
         self.Status = QLabel('Status: Waiting', self)
         self.lower_box.addWidget(self.Status)
@@ -262,6 +367,7 @@ class MainWindow(QMainWindow):
         self.start_btn.clicked.connect(self.start_command)
         self.upper_left_box.addWidget(self.start_btn)
         self.start_btn.setEnabled(True)
+        
         
         # Stop button
         self.stop_btn = QPushButton('Stop', self)
@@ -301,13 +407,15 @@ class MainWindow(QMainWindow):
         
     def start_command(self):
         if self.main_program is None:
-            self.main_program = MainProgram(ui=self)
-            self.main_program.update_status.connect(self.update_status)
+            self.main_program = MainProgram(self,self.Freq, self.Volt_List,self.Temp_List,
+                                            self.Accuracy,self.WaitV,self.LastTemp,
+                                            self.Fake_Signal,self.AmpGain,self.Folder,self.BaseName)
             self.main_program.finished.connect(self.command_finished)
             self.main_program.start()
             self.start_btn.setEnabled(False)
             self.stop_btn.setEnabled(True)
             self.Status.setText("Running command...")
+            self.Status.update()
 
     def stop_command(self):
         if self.main_program is not None:
@@ -317,10 +425,6 @@ class MainWindow(QMainWindow):
             self.start_btn.setEnabled(True)
             self.stop_btn.setEnabled(False)
             self.Status.setText("Command stopped")
-
-    def update_status(self, message):
-        self.Status.setText(message)
-        self.Status.update()
 
     def command_finished(self):
         self.main_program = None
@@ -335,12 +439,11 @@ class MainWindow(QMainWindow):
     def checkbox_state_changed(self, state):
         if state == 2:  # Checked
             print('Checkbox checked')
-            self.Fake_Signal = True
-            # Add your code to handle the checked state
+            self.Fake_Signal = True      
         else:  # Unchecked
             print('Checkbox unchecked')
-            self.Fake_Signal = False
-            # Add your code to handle the unchecked state 
+            self.Fake_Signal = False 
+            
     def add_group_box_with_title(self, widget, layout, title, row, col, rowspan=1, colspan=1):
         group_box =QGroupBox(title)
         group_layout = QVBoxLayout()
@@ -348,9 +451,9 @@ class MainWindow(QMainWindow):
         group_box.setLayout(group_layout)
         layout.addWidget(group_box, row, col, rowspan, colspan)
         
-    def add_text(self, layout, field_name):
+    def add_text(self, layout, field_name, name):
         if field_name in self.text_fields:
-            label = QLabel(field_name)
+            label = QLabel(name)
             field = self.text_fields[field_name]
             layout.addWidget(label)
             layout.addWidget(field)
@@ -369,145 +472,37 @@ class MainWindow(QMainWindow):
                         self.text_fields[label].setText(value)
         except FileNotFoundError:
             pass
-    
-    def Waiting(self, sec):
-        for i in range(1, sec + 1):
-            time.sleep(1)
-            self.Status.setText(f"{self.Mess} ( time left: {round(sec - i)} sec )")
-            QApplication.processEvents()
-
-    
-
-    def Fill_Volt(self,tlist):
-        TL = tlist.strip()
-        print("Tl", TL)
-        p1 = 1
-        self.Vmax = 0
-        i1 = 0
-        while p1 > 0:
-            i1 += 1
-            p1 = TL.find(',') # Get position of next comma
-            p2 = TL.find('/') # Get position of next "/"
-            if p1 > 0 or p2 > 0:
-                if p1 != 0:
-                    vl1 = TL[:p1]
-                    TL = TL[p1 + 1:]
-                else:
-                    vl1 = TL
-                p2 = vl1.find('/') # Get position of next "/"
-                if p2 != 0:
-                    vol1 = float(vl1[:p2])
-                    vl1 = vl1[p2 + 1:]
-                    p2 = vl1.find('/')
-                    vols = float(vl1[:p2])
-                    vol2 = float(vl1[p2 + 1:])
-                    if vol1 > vol2:
-                        vols = -vols
-                    for vol in range(int(vol1), int(vol2), int(vols)):
-                        Voltage.append(vol)
-                        i1 += 1
-                    i1 -= 1
-                else:
-                    Voltage.append(float(vl1))
-                    if Voltage[i1] > self.Vmax:
-                        self.Vmax = Voltage[i1]
-            else:
-                Voltage[i1] = float(TL)
-                if Voltage[i1] > self.Vmax:
-                    self.Vmax = Voltage[i1]
-        self.Num_Volt = i1
-
-    def Fill_Temp(self,tlist):
-        # TL = tlist.strip()
-        # p5 = 1
-        # i5 = 0
-        # while p5 > 0:
-        #     i5 += 110.0
-        
-        #     p5 = TL.find(',')
-        #     p6 = TL.find('/')
-        #     if p5 > 0 or p6 > 0:
-        #         if p5 != 0:
-        #             TL1 = TL[:p5]
-        #             TL = TL[p5 + 1:]
-        #         else:
-        #             TL1 = TL
-        Num_Temp = 0
-    
-        TL = tlist.strip()
-        i5 = 0
-        
-        while TL:
-            i5 += 1
-            p5 = TL.find(',')
-            p6 = TL.find('/')
-            
-            if p5 > 0 or p6 > 0:
-                if p5 != -1:
-                    TL1 = TL[:p5]
-                    TL = TL[p5 + 1:]
-                else:
-                    TL1 = TL
-                    TL = ""
-                
-                p6 = TL1.find('/')
-                if p6 != -1:
-                    tem1 = float(TL1[:p6])
-                    TL1 = TL1[p6 + 1:]
-                    p6 = TL1.find('/')
-                    tems = float(TL1[:p6])
-                    tem2 = float(TL1[p6 + 1:])
-                    if tem1 > tem2:
-                        tems = -tems
-                    vol = tem1
-                    while (vol <= tem2 and tems > 0) or (vol >= tem2 and tems < 0):
-                        Temperature[i5] = vol
-                        i5 += 1
-                        vol += tems
-                    i5 -= 1
-                else:
-                    Temperature[i5] = float(TL1)
-            else:
-                Temperature[i5] = float(TL)
-                TL = ""
-        
-        Num_Temp = i5
-        # Temperature.append(999)
-                
+   
     def Form_Load(self):
         global TemRes,Volt_List,Accuracy,Offset,Temp_List,Temp_Wait,AmpGain,WaitV,Freq,Folder,BaseName
         if self.text_fields["TempRes"].text() != "": 
-            TemRes = float(self.text_fields["TempRes"].text())
+            self.TemRes = float(self.text_fields["TempRes"].text())
         if self.text_fields["Volt_List"].text() != "": 
-            Volt_List = self.text_fields["Volt_List"].text()
+            self.Volt_List = self.text_fields["Volt_List"].text()
         if self.text_fields["Temp_List"].text() != "": 
-            Temp_List = self.text_fields["Temp_List"].text()
+            self.Temp_List = self.text_fields["Temp_List"].text()
         if self.text_fields["Accuracy"].text() != "": 
-            Accuracy = round(float(self.text_fields["Accuracy"].text()), 2)
+            self.Accuracy = round(float(self.text_fields["Accuracy"].text()), 2)
         if self.text_fields["Offset"].text() != "": 
-            Offset = float(self.text_fields["Offset"].text())
+            self.Offset = float(self.text_fields["Offset"].text())
         if self.text_fields["Temp_Wait"].text() != "": 
-            Temp_Wait = float(self.text_fields["Temp_Wait"].text())
+            self.Temp_Wait = float(self.text_fields["Temp_Wait"].text())
+        if self.text_fields["Temp_Wait"].text() != "": 
+            self.LastTemp = float(self.text_fields["LastTemp"].text())
         if self.text_fields["AmpGain"].text() != "": 
-            AmpGain = round(float(self.text_fields["AmpGain"].text()))
+            self.AmpGain = round(float(self.text_fields["AmpGain"].text()))
         if self.text_fields["WaitV"].text() != "": 
-            WaitV = float(self.text_fields["WaitV"].text())
+            self.WaitV = float(self.text_fields["WaitV"].text())
         if self.text_fields["Frequency"].text() != "": 
-            Freq = float(self.text_fields["Frequency"].text())
+            self.Freq = float(self.text_fields["Frequency"].text())
         if self.text_fields["Folder"].text() != "": 
-            Folder = self.text_fields["Folder"].text()
+            self.Folder = self.text_fields["Folder"].text()
         if self.text_fields["BaseName"].text() != "": 
-            BaseName = self.text_fields["BaseName"].text() 
-
-
+            self.BaseName = self.text_fields["BaseName"].text() 
 
     def form_unload(self):
         sys.exit()
-        
-    def Waiting(self,wait_time):
-        print(f"Waiting for {wait_time} seconds...")
-        self.Status = QLabel(f"Waiting for {wait_time} seconds...")
-        time.sleep(wait_time)
+
         
 
 
