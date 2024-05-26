@@ -17,16 +17,6 @@ import subprocess
 import psutil
 import pygetwindow as gw
 
-
-# dev_Osc, Command, param, Out_File, Out_Data, Volt_List, Temp_List, ReadBuffer = "", "", "", "", "", "", "", ""
-# Frequency = [0.0] * 5 #300
-# Voltage = [0.0] * 5 #300
-# Temperature = [0.0] * 5 #5000
-# Freq, Amplitude, Offset, AmpGain, AvPer, VScal, VScalMax, Vmax = 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0
-# Temp_Wait, LastTemp, WaitV, WaitingVoltage, Accuracy, CurrentT, SetT = 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0
-# Num_Volt, Num_Temp, TemRes = 0, 0, 0
-# Fast, AST, ASV, Expire, DCmode = False, False, False, False, False
-
 AVANTES_path = "C:\\Program Files (x86)\\AvaSoft8\\avasoft8.exe"
 Avantes_exe = 'avasoft8.exe'
 Avantes_name = "AvaSoft 8"
@@ -34,20 +24,11 @@ Avantes_name = "AvaSoft 8"
 # devices = rm.list_resources()
 # for device in devices:
 #     print(device)
-# print(Read_Temp())
-# Set_Temp(30.0)
-# time.sleep(10)
-# print(Read_Temp())
+
 DCmode = False
 
-# Init_Gen()
-# Set_Freq(1000)
-# Set_Amplitude(2.1,1000)
 
-
-
-# Set_Freq(120)
-# Set_Amplitude(0.2,110)         
+      
 # print(AVS_Init(0))
 # print("Number of Devices connected ",AVS_UpdateUSBDevices())
 # print(AVS_GetList())
@@ -55,7 +36,7 @@ DCmode = False
 # AVS_Handle = AVS_Activate(deviceId)
 # print(AVS_Handle)
 # print(AVS_MeasureCallback(AVS_Handle,None,1))
-### Temperature Cycle ###
+
   
 
 
@@ -159,21 +140,22 @@ class MainProgram(QThread):
             # Voltage cycle
             iv = 0
             for volt in self.Voltage:
-                generator.Set_Amplitude(volt / self.AmpGain,self.Freq)    
-                time.sleep(1)  # Sleep for 1000 milliseconds
-                time.sleep(self.WaitV)  # WaitV is already in seconds, no conversion needed
-                self.ui.Status.setText("V circle")
-                self.ui.Status.update()
-                SSComent = "T" + str(SetT)+"V"+str(volt)
-                time.sleep(2)
-                pyautogui.hotkey("alt+F")
-                time.sleep(1)
-                pyautogui.hotkey("S")      
-                time.sleep(3)
-                app_control.type_in_application(SSComent)
-                time.sleep(1)
-                pyautogui.hotkey("enter")
-                time.sleep(1)
+                generator.Set_Amplitude(volt / self.AmpGain,self.Freq)   
+                if not self.Fake_Signal: 
+                    time.sleep(1)  # Sleep for 1000 milliseconds
+                    time.sleep(self.WaitV)  # WaitV is already in seconds, no conversion needed
+                    self.ui.Status.setText("V circle")
+                    self.ui.Status.update()
+                    SSComent = "T" + str(SetT)+"V"+str(volt)
+                    time.sleep(2)
+                    pyautogui.hotkey("alt+F")
+                    time.sleep(1)
+                    pyautogui.hotkey("S")      
+                    time.sleep(3)
+                    app_control.type_in_application(SSComent)
+                    time.sleep(1)
+                    pyautogui.hotkey("enter")
+                    time.sleep(1)
  
         if self.LastTemp != 0:
             temp_probe.Set_Temp(self.LastTemp)    
@@ -187,83 +169,65 @@ class MainProgram(QThread):
     def Fill_Volt(self,tlist):
         TL = tlist.strip()
         print("Tl", TL)
-        p1 = 1
+
         self.Vmax=0
-        i1 = 0
-        while p1 > 0:
-            i1 += 1
-            p1 = TL.find(',') # Get position of next comma
-            p2 = TL.find('/') # Get position of next "/"
-            if p1 > 0 or p2 > 0:
-                if p1 != 0:
-                    vl1 = TL[:p1]
-                    TL = TL[p1 + 1:]
-                else:
-                    vl1 = TL
-                p2 = vl1.find('/') # Get position of next "/"
-                if p2 != 0:
-                    vol1 = float(vl1[:p2])
-                    vl1 = vl1[p2 + 1:]
-                    p2 = vl1.find('/')
-                    vols = float(vl1[:p2])
-                    vol2 = float(vl1[p2 + 1:])
-                    if vol1 > vol2:
-                        vols = -vols
-                    for vol in range(int(vol1), int(vol2), int(vols)):
-                        self.Voltage.append(vol)
-                        i1 += 1
-                    i1 -= 1
-                else:
-                    self.Voltage.append(float(vl1))
-                    if self.Voltage[i1] > self.Vmax:
-                        self.Vmax = self.Voltage[i1]
+        while TL:
+            p1 = TL.find(',')
+            if p1 == -1:
+                p1 = len(TL)
+            
+            vl1 = TL[:p1]
+            TL = TL[p1 + 1:].strip()
+            
+            p2 = vl1.find('/')
+            if p2 != -1:
+                vol1 = float(vl1[:p2])
+                vl1 = vl1[p2 + 1:]
+                p2 = vl1.find('/')
+                vols = float(vl1[:p2])
+                vol2 = float(vl1[p2 + 1:])
+                
+                if vol1 > vol2:
+                    vols = -vols
+                    
+                self.Voltage.extend(range(int(vol1), int(vol2), int(vols)))
             else:
-                self.Voltage[i1] = float(TL)
-                if self.Voltage[i1] > self.Vmax:
-                    self.Vmax = self.Voltage[i1]
-        self.Num_Volt = i1
+                self.Voltage.append(float(vl1))
+            
+            if self.Voltage[-1] > self.Vmax:
+                self.Vmax = self.Voltage[-1]
+        
+        self.Num_Volt = len(self.Voltage)
         
     def Fill_Temp(self,tlist):
-        Num_Temp = 0
-    
         TL = tlist.strip()
-        i5 = 0
-        
         while TL:
-            i5 += 1
             p5 = TL.find(',')
-            p6 = TL.find('/')
+            if p5 == -1:
+                p5 = len(TL)
             
-            if p5 > 0 or p6 > 0:
-                if p5 != -1:
-                    TL1 = TL[:p5]
-                    TL = TL[p5 + 1:]
-                else:
-                    TL1 = TL
-                    TL = ""
-                
+            TL1 = TL[:p5]
+            TL = TL[p5 + 1:].strip()
+            
+            p6 = TL1.find('/')
+            if p6 != -1:
+                tem1 = float(TL1[:p6])
+                TL1 = TL1[p6 + 1:]
                 p6 = TL1.find('/')
-                if p6 != -1:
-                    tem1 = float(TL1[:p6])
-                    TL1 = TL1[p6 + 1:]
-                    p6 = TL1.find('/')
-                    tems = float(TL1[:p6])
-                    tem2 = float(TL1[p6 + 1:])
-                    if tem1 > tem2:
-                        tems = -tems
-                    vol = tem1
-                    while (vol <= tem2 and tems > 0) or (vol >= tem2 and tems < 0):
-                        self.Temperature[i5] = vol
-                        i5 += 1
-                        vol += tems
-                    i5 -= 1
-                else:
-                    self.Temperature[i5] = float(TL1)
+                tems = float(TL1[:p6])
+                tem2 = float(TL1[p6 + 1:])
+                
+                if tem1 > tem2:
+                    tems = -tems
+                
+                vol = tem1
+                while (vol <= tem2 and tems > 0) or (vol >= tem2 and tems < 0):
+                    self.Temperature.append(vol)
+                    vol += tems
             else:
-                self.Temperature[i5] = float(TL)
-                TL = ""
+                self.Temperature.append(float(TL1))
         
-        Num_Temp = i5
+        self.Num_Temp = len(self.Temperature)
            
     def stop(self):
         self._is_running = False
@@ -297,12 +261,10 @@ class MainWindow(QMainWindow):
             # "WaitingVoltage": QLineEdit(self),
             "AmpGain": QLineEdit(self),
             "WaitV": QLineEdit(self),
-        } 
-        self.initUI()
+        }
         
+        self.initUI()
         self.load_values()
-
-            
         self.Form_Load()      
    
     def initUI(self):
@@ -414,6 +376,7 @@ class MainWindow(QMainWindow):
             self.main_program.start()
             self.start_btn.setEnabled(False)
             self.stop_btn.setEnabled(True)
+            self.start_btn.setStyleSheet("background-color: grey; color: white;")
             self.Status.setText("Running command...")
             self.Status.update()
 
@@ -430,7 +393,8 @@ class MainWindow(QMainWindow):
         self.main_program = None
         self.start_btn.setEnabled(True)
         self.stop_btn.setEnabled(False)
-        self.Status.setText("Command finished") 
+        self.start_btn.setStyleSheet("background-color: green; color: white;")
+        self.Status.setText("Command finished")
            
     def closeEvent(self, event):
         self.save_values()
@@ -503,9 +467,6 @@ class MainWindow(QMainWindow):
     def form_unload(self):
         sys.exit()
 
-        
-
-
 # Main function to run the application
 def main():
     app = QApplication(sys.argv)
@@ -514,5 +475,3 @@ def main():
 
 if __name__ == '__main__':
     main()
-    
-   
