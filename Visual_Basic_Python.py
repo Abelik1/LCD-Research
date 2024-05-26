@@ -20,7 +20,7 @@ from PyQt5.QtWidgets import *
 
 from AvaData import AppControl, DirectControl
 from avaspec import *
-from Generator import Generator
+from generator import ( Generator, Mock_Generator )
 from Temp_Probe import Temp_Probe
 
 AVANTES_PATH = "C:\\Program Files (x86)\\AvaSoft8\\avasoft8.exe"
@@ -45,6 +45,7 @@ class MainProgram(QThread):
     """ Opening of MainProgram """
     update_status = pyqtSignal(str)
     finished = pyqtSignal()
+    resourceManager = pyvisa.ResourceManager()
 
     def __init__(self,ui,freq,Volt_List,Temp_List,Accuracy,WaitV,LastTemp,
                 Fake_Signal,AmpGain,Folder,BaseName, parent=None):
@@ -80,7 +81,7 @@ class MainProgram(QThread):
             generator = Mock_Generator()
             temp_probe = Mock_Temp_Probe(ui = self.ui)
         elif self.Fake_Signal:
-            generator = Generator()
+            generator = Generator(self.resourceManager)
             temp_probe = Temp_Probe(ui=self.ui)
 
         self.ui.start_btn.setEnabled(False)
