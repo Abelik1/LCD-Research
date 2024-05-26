@@ -1,0 +1,11 @@
+{
+    "pylint.importStrategy": "fromEnvironment",
+    "pylint.path": [
+        "${workspaceFolder}/.venv/python",
+        "-m",
+        "pylint"
+    ],
+    "editor.formatOnSave": true,
+    "python.linting.enabled": true,
+    "python.linting.pylintEnabled": true,
+}

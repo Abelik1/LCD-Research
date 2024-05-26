@@ -1,25 +1,30 @@
-import pyautogui
-import subprocess
-import time
-import sys
-import ctypes
-import struct
-from PyQt5.QtWidgets import *
-from avaspec import *
-from PyQt5.QtCore import *
-import pyvisa
-import serial
+"""Main function to start Analyser"""
+
+# import subprocess
+# import struct
+
+# import ctypes
 import json
+import sys
+import time
+
+# import psutil
+import pyautogui
+# import pygetwindow as gw
+import pyvisa
+# import serial
+# from PyQt5.QtCore import *
+from PyQt5.QtCore import *
+from PyQt5.QtWidgets import *
+
+from AvaData import *
+from avaspec import *
 from Generator import *
 from Temp_Probe import *
-from AvaData import *
-import subprocess
-import psutil
-import pygetwindow as gw
 
-AVANTES_path = "C:\\Program Files (x86)\\AvaSoft8\\avasoft8.exe"
-Avantes_exe = 'avasoft8.exe'
-Avantes_name = "AvaSoft 8"
+AVANTES_PATH = "C:\\Program Files (x86)\\AvaSoft8\\avasoft8.exe"
+AVANTES_EXE = 'avasoft8.exe'
+AVANTEST_NAME = "AvaSoft 8"
 # rm = pyvisa.ResourceManager()
 # devices = rm.list_resources()
 # for device in devices:
@@ -27,8 +32,6 @@ Avantes_name = "AvaSoft 8"
 
 DCmode = False
 
-
-      
 # print(AVS_Init(0))
 # print("Number of Devices connected ",AVS_UpdateUSBDevices())
 # print(AVS_GetList())
@@ -37,19 +40,16 @@ DCmode = False
 # print(AVS_Handle)
 # print(AVS_MeasureCallback(AVS_Handle,None,1))
 
-  
-
-
-##### Opening of MainProgram #####
 class MainProgram(QThread):
+    """ Opening of MainProgram """
     update_status = pyqtSignal(str)
     finished = pyqtSignal()
 
-    def __init__(self,ui,Freq,Volt_List,Temp_List,Accuracy,WaitV,LastTemp,
+    def __init__(self,ui,freq,Volt_List,Temp_List,Accuracy,WaitV,LastTemp,
                 Fake_Signal,AmpGain,Folder,BaseName, parent=None):
         super(MainProgram, self).__init__(parent)
         self.ui = ui
-        self.Freq = Freq
+        self.Freq = freq
         self.Volt_List =Volt_List
         self.Temp_List =Temp_List
         self.Accuracy = Accuracy
@@ -59,11 +59,11 @@ class MainProgram(QThread):
         self.AmpGain = AmpGain
         self.Folder = Folder
         self.BaseName = BaseName
-        
+
         self.Frequency = [0.0] * 5 #300
         self.Voltage = [0.0] * 5 #300
         self.Temperature = [0.0] * 5 #5000
-        
+
         self._is_running = True
     def run(self):
         try:
@@ -81,13 +81,13 @@ class MainProgram(QThread):
         elif self.Fake_Signal:
             generator = Generator()
             temp_probe = Temp_Probe(ui=self.ui)
-        
+
         self.ui.start_btn.setEnabled(False)
         self.ui.stop_btn.setEnabled(True)
-        
+
         self.ui.Status.setText('Initiation')
         self.ui.Status.update()
-        
+
         # Establish Connection to AVANTES Software
         if self.Fake_Signal:
             print("connected to AVS_Spec")
@@ -101,10 +101,10 @@ class MainProgram(QThread):
             # AVS_Handle = AVS_Activate(deviceId)
             # print("AVS_Handle: ",AVS_Handle)
             pass
-            
+
         # Open or focus the application
-        app_control.open_application(AVANTES_path, Avantes_exe,Avantes_name)
-        
+        app_control.open_application(AVANTES_PATH, AVANTES_EXE,AVANTEST_NAME)
+
         # Display message box
         # msg = QMessageBox()
         # msg.setIcon(QMessageBox.Information)
@@ -112,14 +112,14 @@ class MainProgram(QThread):
         # msg.setWindowTitle("Information")
         # msg.setStandardButtons(QMessageBox.Ok)
         # msg.exec_()
-        
+
         self.Fill_Volt(self.Volt_List)
         self.Fill_Temp(self.Temp_List)
         Port = 1  # sign = 10
         self.Freq = float(self.ui.text_fields["Frequency"].text())
         generator.Set_Freq(self.Freq)
         generator.Set_Amplitude(self.Vmax,self.Freq)
-         
+
         DCmode = False
         FolderName = self.Folder + self.BaseName
         TemRes = 100
@@ -129,14 +129,14 @@ class MainProgram(QThread):
             T_Name = FolderName + "T" + str(int((SetT * TemRes) + 1 / TemRes)).strip()
             Out_Data = T_Name + ".dat"
             temp_probe.Set_Temp(SetT)
-            
+
             temp_probe.Wait_Temp(SetT,self.Accuracy)
             self.ui.Status.setText("Waiting for Temperature")
             self.ui.Status.update()
             # self.ui.AVS_Measure()
             CurrentT = temp_probe.Read_Temp()
             temp_probe.Wait_Temp(SetT,self.Accuracy)
-            
+
             # Voltage cycle
             iv = 0
             for volt in self.Voltage:
@@ -156,7 +156,7 @@ class MainProgram(QThread):
                     time.sleep(1)
                     pyautogui.hotkey("enter")
                     time.sleep(1)
- 
+
         if self.LastTemp != 0:
             temp_probe.Set_Temp(self.LastTemp)    
         # AVS_Done()
@@ -198,7 +198,7 @@ class MainProgram(QThread):
                 self.Vmax = self.Voltage[-1]
         
         self.Num_Volt = len(self.Voltage)
-        
+
     def Fill_Temp(self,tlist):
         TL = tlist.strip()
         while TL:
@@ -228,10 +228,10 @@ class MainProgram(QThread):
                 self.Temperature.append(float(TL1))
         
         self.Num_Temp = len(self.Temperature)
-           
+
     def stop(self):
         self._is_running = False
-       
+
 ##### Opening UI ########
 
 class MainWindow(QMainWindow):
@@ -262,31 +262,31 @@ class MainWindow(QMainWindow):
             "AmpGain": QLineEdit(self),
             "WaitV": QLineEdit(self),
         }
-        
+
         self.initUI()
         self.load_values()
-        self.Form_Load()      
-   
+        self.Form_Load()  
+
     def initUI(self):
         self.setGeometry(300, 300, 900, 400)
         self.setWindowTitle("AvaSpec UI")
 
         # Create main grid layout
         self.grid_layout = QGridLayout()
-        
+
         # Create upper left and right boxes and the lower box
         self.upper_left_box = QVBoxLayout()
         self.upper_right_box = QVBoxLayout()
         self.lower_box = QVBoxLayout()
-        
+
         # Populate the upper left box with some elements
-        self.add_text(self.upper_left_box, "TempRes", "Temperature Resolution") # add_text(location , text_field_name, Label Name)
+        self.add_text(self.upper_left_box, "TempRes", "Temperature Resolution") 
+        # add_text(location , text_field_name, Label Name)
         self.add_text(self.upper_left_box, "WaitV", "Voltage wait time")
         self.add_text(self.upper_left_box, "Frequency", "Frequency")
         # self.add_text(self.upper_left_box, "WaitingVoltage","")
         self.add_text(self.upper_left_box, "AmpGain","Amp Gain")
-        
-        
+
         # Populate the upper right box with some elements
         self.add_text(self.upper_right_box, "Volt_List"," Volt List")
         self.add_text(self.upper_right_box, "Offset", "Offset")
@@ -294,10 +294,10 @@ class MainWindow(QMainWindow):
         self.add_text(self.upper_right_box, "Temp_Wait", "Time to wait for Temperature")
         self.add_text(self.upper_right_box, "LastTemp","Last Temperature")
         self.add_text(self.upper_right_box, "Accuracy", "Accuracy")
-        
+
         for field in self.text_fields.values():
             field.setFixedSize(200, 20)
-            
+
         # Populate the lower box with some elements
         Folder_Label = QLabel("Folder")
         Folder_Label.setFixedSize(200,20)
@@ -305,23 +305,23 @@ class MainWindow(QMainWindow):
         Folder_Field.setFixedSize(300,20)
         self.lower_box.addWidget(Folder_Label)
         self.lower_box.addWidget(Folder_Field)
-        
+
         BaseName_Label = QLabel("BaseName")
         BaseName_Label.setFixedSize(200,20)
         BaseName_Field = self.text_fields["BaseName"]
         BaseName_Field.setFixedSize(200,20)
         self.lower_box.addWidget(BaseName_Label)
         self.lower_box.addWidget(BaseName_Field)
-        
+
         BaseName_Label.update()
         BaseName_Field.update()
-        
+
         self.Status = QLabel('Status: Waiting', self)
         self.lower_box.addWidget(self.Status)
         self.Status.setStyleSheet("background-color: green;")
         self.Status.setFixedSize(400, 100)  # Set the size of the label
         self.Status.setAlignment(Qt.AlignCenter)
-        
+
         # Start button
         self.start_btn = QPushButton('Start', self)
         self.start_btn.setFixedSize(QSize(100, 50))  # Set button size
@@ -329,8 +329,8 @@ class MainWindow(QMainWindow):
         self.start_btn.clicked.connect(self.start_command)
         self.upper_left_box.addWidget(self.start_btn)
         self.start_btn.setEnabled(True)
-        
-        
+
+
         # Stop button
         self.stop_btn = QPushButton('Stop', self)
         self.stop_btn.setFixedSize(QSize(100, 50))  # Set button size
@@ -338,35 +338,38 @@ class MainWindow(QMainWindow):
         self.stop_btn.clicked.connect(self.stop_command)
         self.upper_left_box.addWidget(self.stop_btn)
         self.stop_btn.setEnabled(False)
-        
+
         # Fake Signal button
         self.checkbox = QCheckBox('Fake Signal', self)
         self.checkbox.stateChanged.connect(self.checkbox_state_changed)
         self.upper_left_box.addWidget(self.checkbox)
-        
+
         # Create and set up the upper left widget
         self.upper_left_widget = QWidget()
         self.upper_left_widget.setLayout(self.upper_left_box)
-        self.add_group_box_with_title(self.upper_left_widget, self.grid_layout, 'Upper Left Box', 0, 0)
+        self.add_group_box_with_title(self.upper_left_widget, self.grid_layout, 
+                                      'Upper Left Box', 0, 0)
 
         # Create and set up the upper right widget
         self.upper_right_widget = QWidget()
         self.upper_right_widget.setLayout(self.upper_right_box)
-        self.add_group_box_with_title(self.upper_right_widget, self.grid_layout, 'Upper Right Box', 0, 1)
+        self.add_group_box_with_title(self.upper_right_widget, self.grid_layout, 
+                                      'Upper Right Box', 0, 1)
 
         # Create and set up the lower widget
         self.lower_widget = QWidget()
         self.lower_widget.setLayout(self.lower_box)
-        self.add_group_box_with_title(self.lower_widget, self.grid_layout, 'Lower Box', 1, 0, 1, 2)
+        self.add_group_box_with_title(self.lower_widget, self.grid_layout, 
+                                      'Lower Box', 1, 0, 1, 2)
 
         # Set the grid layout as the central widget's layout
         container = QWidget()
         container.setLayout(self.grid_layout)
         # container.setStyleSheet("border: 1px solid black;")
         self.setCentralWidget(container)
-        
+
         self.show()
-        
+
     def start_command(self):
         if self.main_program is None:
             self.main_program = MainProgram(self,self.Freq, self.Volt_List,self.Temp_List,
@@ -395,11 +398,11 @@ class MainWindow(QMainWindow):
         self.stop_btn.setEnabled(False)
         self.start_btn.setStyleSheet("background-color: green; color: white;")
         self.Status.setText("Command finished")
-           
+
     def closeEvent(self, event):
         self.save_values()
         super().closeEvent(event)
-        
+
     def checkbox_state_changed(self, state):
         if state == 2:  # Checked
             print('Checkbox checked')
@@ -407,14 +410,14 @@ class MainWindow(QMainWindow):
         else:  # Unchecked
             print('Checkbox unchecked')
             self.Fake_Signal = False 
-            
+
     def add_group_box_with_title(self, widget, layout, title, row, col, rowspan=1, colspan=1):
         group_box =QGroupBox(title)
         group_layout = QVBoxLayout()
         group_layout.addWidget(widget)
         group_box.setLayout(group_layout)
         layout.addWidget(group_box, row, col, rowspan, colspan)
-        
+
     def add_text(self, layout, field_name, name):
         if field_name in self.text_fields:
             label = QLabel(name)
@@ -436,9 +439,9 @@ class MainWindow(QMainWindow):
                         self.text_fields[label].setText(value)
         except FileNotFoundError:
             pass
-   
+
     def Form_Load(self):
-        global TemRes,Volt_List,Accuracy,Offset,Temp_List,Temp_Wait,AmpGain,WaitV,Freq,Folder,BaseName
+
         if self.text_fields["TempRes"].text() != "": 
             self.TemRes = float(self.text_fields["TempRes"].text())
         if self.text_fields["Volt_List"].text() != "": 
@@ -467,8 +470,8 @@ class MainWindow(QMainWindow):
     def form_unload(self):
         sys.exit()
 
-# Main function to run the application
 def main():
+    """ Main function to run the application """
     app = QApplication(sys.argv)
     window = MainWindow()
     sys.exit(app.exec_())
