@@ -120,7 +120,7 @@ class MainProgram(QThread):
         Port = 1  # sign = 10
         self.Freq = float(self.ui.text_fields["Frequency"].text())
         generator.Set_Freq(self.Freq)
-        generator.Set_Amplitude(self.Vmax,self.Freq)
+        generator.Set_Amplitude(self.Vmax,self.Freq, DCmode)
 
         DCmode = False
         FolderName = self.Folder + self.BaseName

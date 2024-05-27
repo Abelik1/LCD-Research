@@ -33,8 +33,8 @@ class Generator():
     def Set_Freq(self,freq):
         command = f"FREQ {freq}"
         self.send_command(command)
-    def Set_Amplitude(self,amplitude, freq):
-        global DCmode
+    def Set_Amplitude(self,amplitude, freq, DCmode):
+        
         if amplitude != 0:
             if DCmode:
                 command = f"APPL:SQU {freq}\n"
