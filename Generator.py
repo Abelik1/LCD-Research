@@ -1,14 +1,15 @@
-import pyvisa
-# from Visual_Basic_Python import MainProgram
+""" from Visual_Basic_Python import MainProgram """
+
 class Generator():
-    def __init__(self):
+    """Main Generator class"""
+    def __init__(self, rm):
         B_G = 0
         P_G = 10
         N_G = 0
         T_G = 0
         E1_G = 1
         E2_G = 0
-        self.rm = pyvisa.ResourceManager()
+        self.rm = rm
         # gpib_address = f"FPIB{B_G}::{P_G}::{N_G}::INSTR"
         gpib_address = "GPIB0::10::INSTR"
         print("Connected to generator")
@@ -19,21 +20,21 @@ class Generator():
     def Set_Offset(self,offset):
         command = f"VOLT:OFFS {offset}\n"
         self.send_command(command)
-             
+
     def send_command(self,command):
         if self.gen is not None:
             self.gen.write(command)
         else:
             raise Exception("No connection on GPIB")
-   
+
     def Set_Waveform(self,form):
         command = f"FUNC:SHAP {form}\n"
         self.send_command(command)
     def Set_Freq(self,freq):
         command = f"FREQ {freq}"
         self.send_command(command)
-    def Set_Amplitude(self,amplitude, freq):
-        global DCmode
+    def Set_Amplitude(self,amplitude, freq, DCmode):
+        
         if amplitude != 0:
             if DCmode:
                 command = f"APPL:SQU {freq}\n"
@@ -55,11 +56,11 @@ class Mock_Generator():
         self.Set_Offset("0")
         return
     def Set_Offset(self,offset):
-        return  
-        
+        return
+
     def send_command(self,command):
         return
-   
+
     def Set_Waveform(self,form):
         return
     def Set_Freq(self,freq):

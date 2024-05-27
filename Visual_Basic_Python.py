@@ -13,14 +13,15 @@ import pyautogui
 # import pygetwindow as gw
 import pyvisa
 # import serial
-# from PyQt5.QtCore import *
+
+from PyQt5.QtCore import QThread
 from PyQt5.QtCore import *
 from PyQt5.QtWidgets import *
 
-from AvaData import *
+from AvaData import AppControl, DirectControl
 from avaspec import *
-from Generator import *
-from Temp_Probe import *
+from generator import ( Generator, Mock_Generator )
+from Temp_Probe import Temp_Probe
 
 AVANTES_PATH = "C:\\Program Files (x86)\\AvaSoft8\\avasoft8.exe"
 AVANTES_EXE = 'avasoft8.exe'
@@ -44,6 +45,7 @@ class MainProgram(QThread):
     """ Opening of MainProgram """
     update_status = pyqtSignal(str)
     finished = pyqtSignal()
+    resourceManager = pyvisa.ResourceManager()
 
     def __init__(self,ui,freq,Volt_List,Temp_List,Accuracy,WaitV,LastTemp,
                 Fake_Signal,AmpGain,Folder,BaseName, parent=None):
@@ -79,7 +81,7 @@ class MainProgram(QThread):
             generator = Mock_Generator()
             temp_probe = Mock_Temp_Probe(ui = self.ui)
         elif self.Fake_Signal:
-            generator = Generator()
+            generator = Generator(self.resourceManager)
             temp_probe = Temp_Probe(ui=self.ui)
 
         self.ui.start_btn.setEnabled(False)
@@ -118,7 +120,7 @@ class MainProgram(QThread):
         Port = 1  # sign = 10
         self.Freq = float(self.ui.text_fields["Frequency"].text())
         generator.Set_Freq(self.Freq)
-        generator.Set_Amplitude(self.Vmax,self.Freq)
+        generator.Set_Amplitude(self.Vmax,self.Freq, DCmode)
 
         DCmode = False
         FolderName = self.Folder + self.BaseName
@@ -150,7 +152,7 @@ class MainProgram(QThread):
                     time.sleep(2)
                     pyautogui.hotkey("alt+F")
                     time.sleep(1)
-                    pyautogui.hotkey("S")      
+                    pyautogui.hotkey("S")
                     time.sleep(3)
                     app_control.type_in_application(SSComent)
                     time.sleep(1)
@@ -158,7 +160,7 @@ class MainProgram(QThread):
                     time.sleep(1)
 
         if self.LastTemp != 0:
-            temp_probe.Set_Temp(self.LastTemp)    
+            temp_probe.Set_Temp(self.LastTemp)
         # AVS_Done()
         self.ui.Status.setText("Program END")
         self.ui.Status.update()
@@ -166,6 +168,7 @@ class MainProgram(QThread):
         self.ui.start_btn.setEnabled(True)
         self.ui.stop_btn.setEnabled(False)
         # sys.exit()
+        
     def Fill_Volt(self,tlist):
         TL = tlist.strip()
         print("Tl:", TL)
@@ -235,6 +238,7 @@ class MainProgram(QThread):
 ##### Opening UI ########
 
 class MainWindow(QMainWindow):
+    """Main Controller class"""
     def __init__(self):
         super().__init__()
         self.main_program = None
