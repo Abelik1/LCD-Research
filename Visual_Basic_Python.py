@@ -60,9 +60,9 @@ class MainProgram(QThread):
         self.Folder = Folder
         self.BaseName = BaseName
 
-        self.Frequency = [0.0] * 5 #300
-        self.Voltage = [0.0] * 5 #300
-        self.Temperature = [0.0] * 5 #5000
+        self.Frequency = [0.0] * 300 #300
+        self.Voltage = [0.0] * 300 #300
+        self.Temperature = [0.0] * 5000 #5000
 
         self._is_running = True
     def run(self):
@@ -168,7 +168,7 @@ class MainProgram(QThread):
         # sys.exit()
     def Fill_Volt(self,tlist):
         TL = tlist.strip()
-        print("Tl", TL)
+        print("Tl:", TL)
 
         self.Vmax=0
         while TL:
@@ -265,7 +265,7 @@ class MainWindow(QMainWindow):
 
         self.initUI()
         self.load_values()
-        self.Form_Load()  
+        self.Form_Load()
 
     def initUI(self):
         self.setGeometry(300, 300, 900, 400)
