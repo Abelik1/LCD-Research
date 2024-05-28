@@ -1,0 +1,10 @@
+{
+    // "pylint.importStrategy": "fromEnvironment",
+    "pylint.path": [
+        "${workspaceFolder}/.venv/scripts/python",
+        "-m",
+        "pylint"
+    ],
+    "editor.formatOnSave": true,
+    "python.testing.unittestEnabled": false
+}
