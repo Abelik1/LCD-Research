@@ -17,9 +17,9 @@ import json
 
 dev_Osc, Command, param, Out_File, Out_Data, Volt_List, Temp_List, ReadBuffer = "", "", "", "", "", "", "", ""
 # SSComment = ""
-Frequency = [0.0] * 3 #300
-Voltage = [0.0] * 3 #300
-Temperature = [0.0] * 3 #5000
+Frequency = [0.0] * 300 #300
+Voltage = [0.0] * 300 #300
+Temperature = [0.0] * 5000 #5000
 Freq, Amplitude, Offset, AmpGain, AvPer, VScal, VScalMax, Vmax = 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0
 Temp_Wait, LastTemp, WaitV, WaitingVoltage, Accuracy, CurrentT, SetT = 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0
 # Num_Volt, Num_Temp, TemRes = 0, 0, 0
@@ -99,7 +99,7 @@ class MainWindow(QMainWindow):
         self.Form_Load()      
    
     def initUI(self):
-        self.setGeometry(300, 300, 900, 400)
+        self.setGeometry(300, 300, 900, 800)
         self.setWindowTitle("AvaSpec UI")
 
         # Create main grid layout
@@ -128,7 +128,14 @@ class MainWindow(QMainWindow):
         
         
         # Populate the lower box with some elements
-        self.add_text(self.lower_box, "Folder")
+        # self.add_text(self.lower_box, "Folder").setFixedSize(50, 100)
+        Folder_Label = QLabel("Folder")
+        Folder_Label.setFixedSize(400, 100)
+        field = self.text_fields["Folder"]
+        field.setFixedSize(100, 100)
+        self.lower_box.addWidget(Folder_Label)
+        self.lower_box.addWidget(field)
+        
         self.add_text(self.lower_box, "BaseName")
         
         
