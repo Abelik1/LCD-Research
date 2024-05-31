@@ -5,17 +5,22 @@
 import json
 import sys
 import time
-
+# from qwt import *
+# from plotpy import *
 # import psutil
 import pyautogui
 # import pygetwindow as gw
 import pyvisa
-# import serial
+
 
 from PyQt5.QtCore import QThread
 from PyQt5.QtCore import *
 from PyQt5.QtWidgets import *
+from PyQt5.QtGui import *
 
+from avaspec import *
+import globals
+import form1
 from AvaData import *
 # from avaspec import *
 from Generator import *
@@ -163,7 +168,7 @@ class MainProgram(QThread):
                     self.ui.Status.setText("Stopping...")
                     self.ui.Status.update()
                     break
-                self.ui.Temp_Label.setText(f"{"Current Temp:"}{CurrentT}")
+                self.ui.Temp_Label.setText(f"Current Temp: {CurrentT}")
                 self.ui.Temp_Label.update()
                 # Voltage cycle
                 iv = 0
@@ -179,7 +184,7 @@ class MainProgram(QThread):
                         time.sleep(1)  # Sleep for 1000 milliseconds
                         time.sleep(self.WaitV)  # WaitV is already in seconds, no conversion needed
                         self.ui.Status.setText("V circle")
-                        self.ui.Temp_Label.setText(f"{"Current Temp:"}{CurrentT}")
+                        self.ui.Temp_Label.setText(f"Current Temp: {CurrentT}")
                         self.ui.Temp_Label.update()
                         self.ui.Status.update()
                         if not self._is_running:
@@ -304,7 +309,7 @@ class MainProgram(QThread):
 
 ##### Opening UI ########
 
-class MainWindow(QMainWindow):
+class MainWindow2(QMainWindow):
     """Main Controller class"""
     def __init__(self):
         super().__init__()
@@ -573,11 +578,147 @@ class MainWindow(QMainWindow):
     def form_unload(self):
         sys.exit()
 
+
+class MainWindow1(QMainWindow, form1.Ui_MainWindow):
+    timer = QTimer()
+    newdata = pyqtSignal(int, int)
+
+    def __init__(self, parent=None):
+        QMainWindow.__init__(self, parent)
+        self.setupUi(self)
+        self.IntTimeEdt.setText("{:3.1f}".format(5.0))
+        self.NumAvgEdt.setText("{0:d}".format(1))
+        self.NumMeasEdt.setText("{0:d}".format(1))
+        self.StartMeasBtn.setEnabled(False)
+#       self.OpenCommBtn.clicked.connect(self.on_OpenCommBtn_clicked)
+#       For the buttons, do not use explicit connect together with the on_ notation, 
+#       or you will get two signals instead of one!
+        self.timer.timeout.connect(self.update_plot)
+        self.timer.start(200)
+        self.newdata.connect(self.handle_newdata)
+
+    def measure_cb(self, pparam1, pparam2):
+        param1 = pparam1[0] # dereference the pointers
+        param2 = pparam2[0]
+        self.newdata.emit(param1, param2) 
+
+    @pyqtSlot()
+#   if you leave out the @pyqtSlot() line, you will also get an extra signal!
+#   so you might even get three!
+    def on_OpenCommBtn_clicked(self):
+        ret = AVS_Init(0)    
+        # QMessageBox.information(self,"Info","AVS_Init returned:  {0:d}".format(ret))
+        ret = AVS_GetNrOfDevices()
+        # QMessageBox.information(self,"Info","AVS_GetNrOfDevices returned:  {0:d}".format(ret))
+        if (ret > 0):
+            mylist = AvsIdentityType * 1
+            mylist = AVS_GetList(1)
+            serienummer = str(mylist[0].SerialNumber.decode("utf-8"))
+            QMessageBox.information(self,"Info","Found Serialnumber: " + serienummer)
+            globals.dev_handle = AVS_Activate(mylist[0])
+            # QMessageBox.information(self,"Info","AVS_Activate returned:  {0:d}".format(globals.dev_handle))
+            devcon = DeviceConfigType()
+            devcon = AVS_GetParameter(globals.dev_handle, 63484)
+            globals.pixels = devcon.m_Detector_m_NrPixels
+            globals.wavelength = AVS_GetLambda(globals.dev_handle)
+            self.StartMeasBtn.setEnabled(True)
+        else:
+            QMessageBox.critical(self,"Error","No devices were found!") 
+        return
+
+    @pyqtSlot()
+    def on_CloseCommBtn_clicked(self):
+        # nothing for now
+        return
+
+    @pyqtSlot()
+    def on_StartMeasBtn_clicked(self):
+        self.StartMeasBtn.setEnabled(False)
+        ret = AVS_UseHighResAdc(globals.dev_handle, True)
+        measconfig = MeasConfigType()
+        measconfig.m_StartPixel = 0
+        measconfig.m_StopPixel = globals.pixels - 1
+        measconfig.m_IntegrationTime = float(self.IntTimeEdt.text())
+        measconfig.m_IntegrationDelay = 0
+        measconfig.m_NrAverages = int(self.NumAvgEdt.text())
+        measconfig.m_CorDynDark_m_Enable = 0  # nesting of types does NOT work!!
+        measconfig.m_CorDynDark_m_ForgetPercentage = 0
+        measconfig.m_Smoothing_m_SmoothPix = 0
+        measconfig.m_Smoothing_m_SmoothModel = 0
+        measconfig.m_SaturationDetection = 0
+        measconfig.m_Trigger_m_Mode = 0
+        measconfig.m_Trigger_m_Source = 0
+        measconfig.m_Trigger_m_SourceType = 0
+        measconfig.m_Control_m_StrobeControl = 0
+        measconfig.m_Control_m_LaserDelay = 0
+        measconfig.m_Control_m_LaserWidth = 0
+        measconfig.m_Control_m_LaserWaveLength = 0.0
+        measconfig.m_Control_m_StoreToRam = 0
+        ret = AVS_PrepareMeasure(globals.dev_handle, measconfig)
+        nummeas = int(self.NumMeasEdt.text())
+        globals.NrScanned = 0
+        avs_cb = AVS_MeasureCallbackFunc(self.measure_cb)
+        AVS_MeasureCallback(globals.dev_handle, avs_cb, nummeas)
+        while nummeas != globals.NrScanned: # wait until data has arrived
+            time.sleep(0.001)
+            qApp.processEvents()
+        self.StartMeasBtn.setEnabled(True)      
+        return
+
+    @pyqtSlot()
+    def on_StopMeasBtn_clicked(self):
+        ret = AVS_StopMeasure(globals.dev_handle)
+        self.StartMeasBtn.setEnabled(True)
+        return
+
+    @pyqtSlot()
+    def update_plot(self):
+        self.plot.update_plot()
+        if (globals.NrScanned == int(self.NumMeasEdt.text())):
+            self.StartMeasBtn.setEnabled(True)    
+        return        
+
+    @pyqtSlot(int, int)
+    def handle_newdata(self, lparam1, lparam2):
+        #print(lparam1)
+        #print(lparam2)
+        timestamp = 0
+        ret = AVS_GetScopeData(globals.dev_handle)
+        timestamp = ret[0]
+        globals.NrScanned += 1  
+        globals.spectraldata = ret[1]
+        # QMessageBox.information(self,"Info","Received data")
+        return
+# def main():
+#     """ Main function to run the application """
+#     app = QApplication(sys.argv)
+#     window = MainWindow()
+#     sys.exit(app.exec_())
+
+# if __name__ == '__main__':
+#     main()
+
+class TabbedApp(QMainWindow):
+    def __init__(self):
+        super().__init__()
+        self.setWindowTitle("Tabbed PyQt5 Application")
+
+        self.tabs = QTabWidget()
+        self.setCentralWidget(self.tabs)
+
+        self.tab1 = MainWindow1()
+        self.tab2 = MainWindow2()
+
+        self.tabs.addTab(self.tab1, "Tab 1")
+        self.tabs.addTab(self.tab2, "Tab 2")
+
 def main():
-    """ Main function to run the application """
     app = QApplication(sys.argv)
-    window = MainWindow()
+    app.setStyleSheet("QWidget{font-size:20px}")
+    app.lastWindowClosed.connect(app.quit)
+    main_app = TabbedApp()
+    main_app.show()
     sys.exit(app.exec_())
 
-if __name__ == '__main__':
+if __name__ == "__main__":
     main()
