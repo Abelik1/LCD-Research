@@ -1,13 +1,10 @@
 # -*- coding: utf-8 -*-
-from PyQt5 import *
+
 from PyQt5.QtCore import *
 from PyQt5.QtGui import *
 from PyQt5.QtWidgets import *
 from PyQt5.Qwt import *
-# from qwt import QwtPlot,QwtPlotCurve,QwtPlotItem
-# from plotpy import *
 import globals
-import numpy as np
 
 class Plot(QwtPlot):
     points = QPolygonF(4096)
@@ -21,40 +18,29 @@ class Plot(QwtPlot):
         self.curve.setRenderHint(QwtPlotItem.RenderAntialiased)
         self.curve.setPen(QPen(Qt.black))
         self.curve.attach(self)
-        # self.zoomer = QwtPlotZoomer(self.canvas())
-        # self.zoomer.setMousePattern(QwtEventPattern.MouseSelect2, Qt.RightButton, Qt.ControlModifier)
-        # self.zoomer.setMousePattern(QwtEventPattern.MouseSelect3, Qt.RightButton)
-        # self.panner = QwtPlotPanner(self.canvas())
-        # self.panner.setMouseButton(Qt.MidButton)
-        # self.zoomer.setRubberBandPen(QColor(Qt.black))
-        # self.zoomer.setTrackerPen(QColor(Qt.black))
+        self.zoomer = QwtPlotZoomer(self.canvas())
+        self.zoomer.setMousePattern(QwtEventPattern.MouseSelect2, Qt.RightButton, Qt.ControlModifier)
+        self.zoomer.setMousePattern(QwtEventPattern.MouseSelect3, Qt.RightButton)
+        self.panner = QwtPlotPanner(self.canvas())
+        self.panner.setMouseButton(Qt.MidButton)
+        self.zoomer.setRubberBandPen(QColor(Qt.black))
+        self.zoomer.setTrackerPen(QColor(Qt.black))
         self.replot()
         self.show()
         return
 
     def update_plot(self):
-        self.points.clear()
-        x = 0
-        while (x < globals.pixels):   # 0 through 2047
-           self.points.append(QPointF(float(globals.wavelength[x]), float(globals.spectraldata[x])))
-           x += 1
-        self.curve.setSamples(self.points)
-        self.replot()
-        self.show()    
+        if (globals.m_GraphicsDisabled == False):
+            self.points.clear()
+            # when using pixelselection (startpixel > 0), note that the spectraldata are starting at the current
+            # startpixel, but the wavelength array keeps starting at pixel #0
+            x = 0
+            while (x < globals.stoppixel - globals.startpixel):
+                self.points.append(QPointF(float(globals.wavelength[x + globals.startpixel]), float(globals.spectraldata[x])))
+                x += 1
+            self.curve.setSamples(self.points)
+            self.replot()
+            self.show()    
         return
-    # def update_plot(self):
-    #     self.points.clear()
-    #     x = 0
-    #     while x < globals.pixels:  # 0 through 2047
-    #         self.points.append(QPointF(float(globals.wavelength[x]), float(globals.spectraldata[x])))
-    #         x += 1
 
-    #     # Convert QPointF objects to tuples of floats
-    #     point_tuples = [(point.x(), point.y()) for point in self.points]
-        
-    #     # Create a NumPy array of the tuples
-    #     points_array = np.array(point_tuples, dtype=[('x', float), ('y', float)])
 
-    #     self.curve.setSamples(points_array)
-    #     self.replot()
-    #     self.show()

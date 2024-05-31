@@ -45,5 +45,3 @@ class AppControl():
         pyautogui.typewrite(text, interval=0.1)     
     ### Oscilloscope Control ###
     
-class DirectControl():
-    xauoseios =1

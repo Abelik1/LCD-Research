@@ -34,5 +34,3 @@ class Plot(QtWidgets.QWidget):
         self.canvas.draw()
         self.show()    
         return
-
-

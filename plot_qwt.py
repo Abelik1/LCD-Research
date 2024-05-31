@@ -3,9 +3,7 @@
 from PyQt5.QtCore import *
 from PyQt5.QtGui import *
 from PyQt5.QtWidgets import *
-# from PyQt5.Qwt import *
-from qwt import *
-from plotpy import *
+from PyQt5.Qwt import *
 import globals
 
 class Plot(QwtPlot):
@@ -32,14 +30,17 @@ class Plot(QwtPlot):
         return
 
     def update_plot(self):
-        self.points.clear()
-        x = 0
-        while (x < globals.pixels):   # 0 through 2047
-           self.points.append(QPointF(float(globals.wavelength[x]), float(globals.spectraldata[x])))
-           x += 1
-        self.curve.setSamples(self.points)
-        self.replot()
-        self.show()    
+        if (globals.m_GraphicsDisabled == False):
+            self.points.clear()
+            # when using pixelselection (startpixel > 0), note that the spectraldata are starting at the current
+            # startpixel, but the wavelength array keeps starting at pixel #0
+            x = 0
+            while (x < globals.stoppixel - globals.startpixel):
+                self.points.append(QPointF(float(globals.wavelength[x + globals.startpixel]), float(globals.spectraldata[x])))
+                x += 1
+            self.curve.setSamples(self.points)
+            self.replot()
+            self.show()    
         return
 
 

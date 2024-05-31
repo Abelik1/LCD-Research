@@ -1,5 +1,5 @@
-Use: pyuic5.bat
+Use: pyuic5
 
-pyuic5 form1.ui -o form1.py
+pyuic5 qtdemo.ui -o qtdemo.py
 
 
