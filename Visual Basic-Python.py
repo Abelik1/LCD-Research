@@ -8,135 +8,12 @@ import struct
 from PyQt5.QtWidgets import *
 from avaspec import *
 from PyQt5.QtCore import *
+import gpib_ctypes.gpib
+gpib_ctypes.gpib.gpib._load_lib("C:\\Users\\Abeli\\AppData\\Local\\Programs\\Python\\Python312\\Lib\\site-packages\\gpib_ctypes\\gpib")
 import pyvisa
 import serial
 import json
-  
-
-import subprocess
-import psutil
-import pygetwindow as gw
-
-# print("This is the Temperature: ",Read_Temp())
-
-dev_Osc, Command, param, Out_File, Out_Data, Volt_List, Temp_List, ReadBuffer = "", "", "", "", "", "", "", ""
-# SSComment = ""
-Frequency = [0.0] * 3 #300
-Voltage = [0.0] * 3 #300
-Temperature = [0.0] * 3 #5000
-Freq, Amplitude, Offset, AmpGain, AvPer, VScal, VScalMax, Vmax = 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0
-Temp_Wait, LastTemp, WaitV, WaitingVoltage, Accuracy, CurrentT, SetT = 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0
-# Num_Volt, Num_Temp, TemRes = 0, 0, 0
-Fast, AST, ASV, Expire, DCmode = False, False, False, False, False
-
-AVANTES_path = "C:\\Program Files (x86)\\AvaSoft8\\avasoft8.exe"
-Avantes_exe = 'avasoft8.exe'
-Avantes_name = "AvaSoft 8"
-# rm = pyvisa.ResourceManager()
-# devices = rm.list_resources()
-# for device in devices:
-#     print(device)
-# print(Read_Temp())
-# Set_Temp(30.0)
-# time.sleep(10)
-# print(Read_Temp())
-DCmode = False
-
-# Init_Gen()
-# Set_Freq(1000)
-# Set_Amplitude(2.1,1000)
-
-
-
-# Set_Freq(120)
-# Set_Amplitude(0.2,110)         
-# print(AVS_Init(0))
-# print("Number of Devices connected ",AVS_UpdateUSBDevices())
-# print(AVS_GetList())
-# deviceId = AVS_GetList()[0]
-# AVS_Handle = AVS_Activate(deviceId)
-# print(AVS_Handle)
-# print(AVS_MeasureCallback(AVS_Handle,None,1))
-### Temperature Cycle ###
-
-
-
-##### Opening of AvaSoft #####
-
-##### Generator ########
-class Generator():
-    def __init__(self, fake_signal):
-
-        self.Fake_Signal = fake_signal
-        # global ser
-        B_G = 0
-        P_G = 10
-        N_G = 0
-        T_G = 0
-        E1_G = 1
-        E2_G = 0
-        # gpib_address = f"FPIB{B_G}::{P_G}::{N_G}::INSTR"
-        gpib_address = "GPIB0::10::INSTR"
-        if self.Fake_Signal == True:
-            print("connected to generator")
-        else:
-            self.gen = self.rm.open_resource(gpib_address)
-
-        # ser = serial.Serial("COM1",9600,timeout = 3)
-        self.Set_Offset("0")
-        
-    def send_command(self,command):
-        if self.Fake_Signal == False:
-            if self.gen is not None:
-                self.gen.write(command)
-            else:
-                raise Exception("No connection on GPIB")
-        else:
-            pass    
-    def Set_Waveform(self,form):
-        if self.Fake_Signal == False:
-            command = f"FUNC:SHAP {form}\n"
-            self.send_command(command)
-        else:
-            pass
-    def Set_Freq(self,freq):
-        if self.Fake_Signal == False:
-            command = f"FREQ {freq}"
-            self.send_command(command)
-        else:
-            pass
-    def Set_Amplitude(self,amplitude, freq):
-        if self.Fake_Signal == False:
-            global DCmode
-            if amplitude != 0:
-                if DCmode:
-                    command = f"APPL:SQU {freq}\n"
-                    self.send_command(command)
-                    command = f"VOLT {amplitude}\n"
-                    self.send_command(command)
-                    DCmode = False
-                else:
-                    command = f"VOLT {amplitude}\n"
-                    self.send_command(command)
-            else:
-                DCmode = True
-                command = f"APPLy:DC DEF, DEF, O\n"
-                self.send_command(command)
-        else:
-            pass  
-    def Set_Offset(self,offset):
-        if self.Fake_Signal == False:
-            command = f"VOLT:OFFS {offset}\n"
-            self.send_command(command)
-        else:
-            pass      
-          
-# #### temperature control ########
-class Temp_Probe:        
-    def __init__(self, fake_signal):
-        self.Fake_Signal = fake_signal
-        
-    def Crc(self,message):
+def Crc(message):
         CRC16 = 65535
         for c in message:
             CRC16 ^= ord(c)
@@ -149,90 +26,95 @@ class Temp_Probe:
         CRCH = CRC16 >> 8
         CRCL = CRC16 & 255
         message += chr(CRCL) + chr(CRCH) + "xyz"
-        print(CRC16,"CRC16")
-        # return CRC16
-        return message
-    
-    def Read_Temp(self):
-        if self.Fake_Signal == False:
-            ADDRESS = 1
-            CODE = 3
-            A1_H = 0
-            A1_L = 1  # 1- Display; 2-SetPoint
-            N_H = 0
-            N_L = 1
-            TemRes = 100  # Define the temperature resolution variable
-            
-            ser = serial.Serial('COM1', 9600, timeout=1)  # Adjust the port and baudrate as necessary
-            ser.reset_input_buffer()
-            time.sleep(0.1)
-            
-            message = chr(ADDRESS) + chr(CODE) + chr(A1_H) + chr(A1_L) + chr(N_H) + chr(N_L)
-            message = self.Crc(message)
-            
-            ser.write(message.encode('latin-1'))
-            time.sleep(0.1)
-            mes = ser.read(7)  # Adjust the number of bytes to read if necessary
-            if len(mes) < 7:
-                raise Exception("Incomplete message received for Temperature")
-            
-            read_temp = (256 * (mes[3]) + (mes[4])) / TemRes
-            
-            ser.close()
-            return read_temp
-        else:
-            return 20.0
-            
-    
-    def Set_Temp(self,temp):
-        if self.Fake_Signal == False:
-            TemRes=100
-            temp= int(TemRes*temp)
-            ADDRESS =1
-            CODE = 6
-            A_MSB = 0
-            A_LSB = 2
-            V_MSB = temp // 256
-            V_LSB = temp % 256
-            
-            message = chr(ADDRESS) + chr(CODE) + chr(A_MSB) + chr(A_LSB) + chr(V_MSB) + chr(V_LSB)
-            message = self.Crc(message)
-            
-            ser = serial.Serial('COM1', 9600, timeout=1)  # Adjust the port and baudrate as necessary
-
-            ser.write(message.encode("latin-1"))
-            time.sleep(0.2)
-            ser.close()
-            return 1
-        else:
-            return 1
+        return CRC16
+def Read_Temp():
+        ADDRESS = 1
+        CODE = 3
+        A1_H = 0
+        A1_L = 1  # 1- Display; 2-SetPoint
+        N_H = 0
+        N_L = 1
+        TemRes = 1  # Define the temperature resolution variable
         
-# #### Opening UI ########
+        ser = serial.Serial('COM1', 9600, timeout=1)  # Adjust the port and baudrate as necessary
+
+        ser.reset_input_buffer()
+        time.sleep(0.1)
+        
+        message = chr(ADDRESS) + chr(CODE) + chr(A1_H) + chr(A1_L) + chr(N_H) + chr(N_L)
+        Crc(message)
+        
+        ser.write(message.encode('latin-1'))
+        time.sleep(0.1)
+        
+        mes = ser.read(7)  # Adjust the number of bytes to read if necessary
+        
+        if len(mes) < 7:
+            raise Exception("Incomplete message received")
+        
+        read_temp = (256 * ord(mes[3]) + ord(mes[4])) / TemRes
+        
+        ser.close()
+        return read_temp
+# print("This is the Temperature: ",Read_Temp())
+Gen_id = 0
+dev_Osc, Command, param, Out_File, Out_Data, Volt_List, Temp_List, ReadBuffer = "", "", "", "", "", "", "", ""
+SSComment = ""
+Frequency = [0.0] * 300
+Voltage = [0.0] * 300
+Temperature = [0.0] * 5000
+Freq, Amplitude, Offset, AmpGain, AvPer, VScal, VScalMax, Vmax = 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0
+Temp_Wait, LastTemp, WaitV, WaitingVoltage, Accuracy, CurrentT, SetT = 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0
+Num_Volt, Num_Temp, TemRes = 0, 0, 0
+Fast, AST, ASV, Expire, DCmode = False, False, False, False, False
+
+AVANTES_path = "C:\\Program Files (x86)\\AvaSoft8\\avasoft8.exe"
+AVANTES_name = 'avasoft8.exe'
+# print(AVS_Init(0))
+# print("Number of Devices connected ",AVS_UpdateUSBDevices())
+# print(AVS_GetList())
+# deviceId = AVS_GetList()[0]
+# AVS_Handle = AVS_Activate(deviceId)
+# print(AVS_Handle)
+# print(AVS_MeasureCallback(AVS_Handle,None,1))
+### Temperature Cycle ###
+  
+
+import subprocess
+import psutil
+import pygetwindow as gw
+##### Opening of AvaSoft #####
+
+       
+##### Opening UI ########
+
+# Placeholder functions for Fill_Volt and Fill_Temp
 
 class MainWindow(QMainWindow):
     def __init__(self):
         super().__init__()
-        self.rm = pyvisa.ResourceManager()
-        devices = self.rm.list_resources()
-        for device in devices:
-            print(device)
-        self.exit_flag = False
+        
         # Set the current Date
         self.da = QDateTime.currentDateTime() 
         
         self.DCmode = False
         self.text_fields = {
-            "TempRes": QLineEdit(self),
+            "TemRes": QLineEdit(self),
+            "QQ": QLineEdit(self),
+            "AvPer": QLineEdit(self),
             "Volt_List": QLineEdit(self),
             "Offset": QLineEdit(self),
-            "Temp_List": QLineEdit(self), 
-            "Folder": QLineEdit(self),
+            "Temp_List": QLineEdit(self),
+            "Fold": QLineEdit(self),
             "BaseName": QLineEdit(self),
-            "Temp_Wait": QLineEdit(self), # Used Once in the Temp loop
+            "Temp_Wait": QLineEdit(self),
+            "N/A": QLineEdit(self),
             "LastTemp": QLineEdit(self),
             "Accuracy": QLineEdit(self),
             "Frequency": QLineEdit(self),
+            "VScalMax": QLineEdit(self),
             "WaitingVoltage": QLineEdit(self),
+            "Frequency": QLineEdit(self),
             "AmpGain": QLineEdit(self),
             "WaitV": QLineEdit(self),
         } 
@@ -241,10 +123,42 @@ class MainWindow(QMainWindow):
         self.connect_signals()
         for field in self.text_fields.values():
             field.setFixedSize(200, 20)
-        self.Form_Load()      
+    #     # Populate the upper left box with some elements
+    #     # self.upper_left_box.addWidget(QLabel('Upper Left Box'))
+    #     # self.upper_left_box.addWidget(QPushButton('Button 1'))
+
+        
+    #     # Populate the upper right box with some elements
+    #     # self.upper_right_box.addWidget(QLabel('Upper Right Box'))
+    #     # self.upper_right_box.addWidget(QPushButton('Button 2'))
+
+        
+    #     # Populate the lower box with some elements
+    #     # Command1 button
+    #     # Create the button
+    #     self.button1 = QPushButton('Start', self)
+    #     # Connect the button's clicked signal to the command1_click method
+    #     self.button1.clicked.connect(self.command1_click)
+    #     # Add the button to one of the layouts, for example, upper_left_box
+    #     self.upper_left_box.addWidget(self.button1)
+        
+    #     # self.lower_box.addWidget(QLabel('Lower Box'))
+    #     # self.lower_box.addWidget(QPushButton('Button 3'))
+
+        
+    #     self.show()
+        # Create the main layout
+        # self.layout = QVBoxLayout()
+        
+        # Create and set the EndOfProgram label
+        # self.EndOfProgram = QLabel('End of Program', self)
+        # self.layout.addWidget(self.EndOfProgram)
+        # Status label
+        # self.Status = QLabel('Status: Waiting', self)
+        # self.layout.addWidget(self.Status)
+        
    
     def initUI(self):
-        self.setGeometry(300, 300, 900, 400)
         self.setWindowTitle("AvaSpec UI")
 
         # Create main grid layout
@@ -256,25 +170,37 @@ class MainWindow(QMainWindow):
         self.lower_box = QVBoxLayout()
         
         # Populate the upper left box with some elements
-        self.add_text(self.upper_left_box, "TempRes")
-        self.add_text(self.upper_left_box, "WaitV")
-        self.add_text(self.upper_left_box, "Frequency")
-        self.add_text(self.upper_left_box, "WaitingVoltage")
-        self.add_text(self.upper_left_box, "AmpGain")
+        self.add_text_field_to_layout(self.upper_left_box, "TemRes")
+        self.add_text_field_to_layout(self.upper_left_box, "WaitV")
+        self.add_text_field_to_layout(self.upper_left_box, "QQ")
+        self.add_text_field_to_layout(self.upper_left_box, "AvPer")
+        self.add_text_field_to_layout(self.upper_left_box, "Frequency")
+        self.add_text_field_to_layout(self.upper_left_box, "VScalMax")
+        self.add_text_field_to_layout(self.upper_left_box, "WaitingVoltage")
+        self.add_text_field_to_layout(self.upper_left_box, "AmpGain")
+        # Command1 button
+        self.button1 = QPushButton('Start', self)
+        self.button1.clicked.connect(self.command1_click)
+        self.upper_left_box.addWidget(self.button1)
         
+        # Command2 button
+        self.button2 = QPushButton('Stop', self)
+        self.button2.clicked.connect(self.command2_click)
+        self.upper_left_box.addWidget(self.button2)
         
         # Populate the upper right box with some elements
-        self.add_text(self.upper_right_box, "Volt_List")
-        self.add_text(self.upper_right_box, "Offset")
-        self.add_text(self.upper_right_box, "Temp_List")
-        self.add_text(self.upper_right_box, "Temp_Wait")
-        self.add_text(self.upper_right_box, "LastTemp")
-        self.add_text(self.upper_right_box, "Accuracy")
+        self.add_text_field_to_layout(self.upper_right_box, "Volt_List")
+        self.add_text_field_to_layout(self.upper_right_box, "Offset")
+        self.add_text_field_to_layout(self.upper_right_box, "Temp_List")
+        self.add_text_field_to_layout(self.upper_right_box, "Temp_Wait")
+        self.add_text_field_to_layout(self.upper_right_box, "N/A")
+        self.add_text_field_to_layout(self.upper_right_box, "LastTemp")
+        self.add_text_field_to_layout(self.upper_right_box, "Accuracy")
         
         
         # Populate the lower box with some elements
-        self.add_text(self.lower_box, "Folder")
-        self.add_text(self.lower_box, "BaseName")
+        self.add_text_field_to_layout(self.lower_box, "Fold")
+        self.add_text_field_to_layout(self.lower_box, "BaseName")
         
         
         self.Status = QLabel('Status: Waiting', self)
@@ -282,83 +208,41 @@ class MainWindow(QMainWindow):
         self.Status.setStyleSheet("background-color: green;")
         self.Status.setFixedSize(400, 100)  # Set the size of the label
         self.Status.setAlignment(Qt.AlignCenter)
+
         
-        # Command1 button
-        self.button1 = QPushButton('Start', self)
-        self.button1.setFixedSize(QSize(100, 50))  # Set button size
-        self.button1.setStyleSheet("background-color: green; color: white;")
-        self.button1.clicked.connect(self.command1_click)
-        self.upper_left_box.addWidget(self.button1)
-        self.button1.setEnabled(True)
-        
-        # Command2 button
-        self.button2 = QPushButton('Stop', self)
-        self.button2.setFixedSize(QSize(100, 50))  # Set button size
-        self.button2.setStyleSheet("background-color: red; color: white;")
-        self.button2.clicked.connect(self.command2_click)
-        self.upper_left_box.addWidget(self.button2)
-        self.button2.setEnabled(False)
-        
-        # Fake Signal button
-        self.checkbox = QCheckBox('Fake Signal', self)
-        self.checkbox.stateChanged.connect(self.checkbox_state_changed)
-        self.upper_left_box.addWidget(self.checkbox)
-        
-        # Create and set up the upper left widget
         self.upper_left_widget = QWidget()
         self.upper_left_widget.setLayout(self.upper_left_box)
-        self.add_group_box_with_title(self.upper_left_widget, self.grid_layout, 'Upper Left Box', 0, 0)
+        # self.upper_left_widget.setStyleSheet("") #border: 2px solid red;
 
-        # Create and set up the upper right widget
         self.upper_right_widget = QWidget()
         self.upper_right_widget.setLayout(self.upper_right_box)
-        self.add_group_box_with_title(self.upper_right_widget, self.grid_layout, 'Upper Right Box', 0, 1)
+        # self.upper_right_widget.setStyleSheet("") #border: 2px solid green;
 
-        # Create and set up the lower widget
         self.lower_widget = QWidget()
         self.lower_widget.setLayout(self.lower_box)
-        self.add_group_box_with_title(self.lower_widget, self.grid_layout, 'Lower Box', 1, 0, 1, 2)
-
+        # self.lower_widget.setStyleSheet("") #border: 2px solid blue;
+        
+        # Add these boxes to the grid layout
+        self.grid_layout.addWidget(self.upper_left_widget, 0, 0)
+        self.grid_layout.addWidget(self.upper_right_widget, 0, 1)
+        self.grid_layout.addWidget(self.lower_widget, 1, 0, 1, 2)
+        
         # Set the grid layout as the central widget's layout
         container = QWidget()
         container.setLayout(self.grid_layout)
-        # container.setStyleSheet("border: 1px solid black;")
+        container.setStyleSheet("border: 1px solid black;")
         self.setCentralWidget(container)
         
         self.show()
-        
-    def closeEvent(self, event):
-        self.save_values()
-        super().closeEvent(event)
-        
-    def command2_click(self):
-        # Simulate unloading Form1
-        self.exit_flag = True
-        self.close()   
-    def checkbox_state_changed(self, state):
-        if state == 2:  # Checked
-            print('Checkbox checked')
-            self.Fake_Signal = True
-            # Add your code to handle the checked state
-        else:  # Unchecked
-            print('Checkbox unchecked')
-            self.Fake_Signal = False
-            # Add your code to handle the unchecked state 
-    def add_group_box_with_title(self, widget, layout, title, row, col, rowspan=1, colspan=1):
-        group_box =QGroupBox(title)
-        group_layout = QVBoxLayout()
-        group_layout.addWidget(widget)
-        group_box.setLayout(group_layout)
-        layout.addWidget(group_box, row, col, rowspan, colspan)
-        
-    def add_text(self, layout, field_name):
+
+    def add_text_field_to_layout(self, layout, field_name):
         if field_name in self.text_fields:
             label = QLabel(field_name)
             field = self.text_fields[field_name]
             layout.addWidget(label)
             layout.addWidget(field)
 
-    def save_values(self):              
+    def save_values(self):
         values = {label: field.text() for label, field in self.text_fields.items()}
         with open("values.json", "w") as f:
             json.dump(values, f)
@@ -372,98 +256,198 @@ class MainWindow(QMainWindow):
                         self.text_fields[label].setText(value)
         except FileNotFoundError:
             pass
+    def connect_signals(self):
+        self.text_fields["TemRes"].textChanged.connect(self.text1_change)
+        self.text_fields["N/A"].textChanged.connect(self.text2_change)
+        self.text_fields["AvPer"].textChanged.connect(self.text3_change)
+        self.text_fields["Volt_List"].textChanged.connect(self.text4_change)
+        self.text_fields["Offset"].textChanged.connect(self.text5_change)
+        self.text_fields["Temp_List"].textChanged.connect(self.text6_change)
+        self.text_fields["Fold"].textChanged.connect(self.text7_change)
+        self.text_fields["BaseName"].textChanged.connect(self.text8_change)
+        self.text_fields["Temp_Wait"].textChanged.connect(self.text9_change)
+        self.text_fields["QQ"].textChanged.connect(self.text10_change)
+        self.text_fields["LastTemp"].textChanged.connect(self.text11_change)
+        self.text_fields["Accuracy"].textChanged.connect(self.text12_change)
+        self.text_fields["Frequency"].textChanged.connect(self.text13_change)
+        self.text_fields["VScalMax"].textChanged.connect(self.text14_change)
+        self.text_fields["WaitingVoltage"].textChanged.connect(self.text16_change)
+        self.text_fields["AmpGain"].textChanged.connect(self.text17_change)
+        self.text_fields["WaitV"].textChanged.connect(self.text18_change)
     
 
-    ### Window Control ###
-    # def is_application_open(self,name):
-    #     """Check if there is any running process that contains the given name."""
-    #     for proc in psutil.process_iter(['name']):
-    #         if name.lower() in proc.info['name'].lower():
-    #             try:
-    #                 # Focus the window using the process ID and window title
-    #                 windows = gw.getWindowsWithTitle("Task Manager")
-    #                 if not windows:
-    #                     print(f"No windows found with title containing: {name}")
-    #                 for win in windows:
-    #                     print(f"Attempting to activate window: {win.title}")
-    #                     win.activate()
-    #                     win.maximize()  # Optional: Maximize the window
-    #                     return True
-    #             except Exception as e:
-    #                 print("Error bringing the window to front:", e)
-    #             return True
-    #     return False
+    def closeEvent(self, event):
+        self.save_values()
+        super().closeEvent(event)
+        
+    def command2_click(self):
+        # Simulate unloading Form1
+        self.exit_flag = True
+        # self.close()
+        
+    def add_labeled_textbox(self, label_text, text_var, change_handler):
+        label = QLabel(label_text, self)
+        text_var.textChanged.connect(change_handler)
+        
+        h_layout = QHBoxLayout()
+        h_layout.addWidget(label)
+        h_layout.addWidget(text_var)
+        self.layout.addLayout(h_layout)
 
-    # def open_application(self,path, name):
-    #     #Opens an application if it's not already running.
-    #     if not self.is_application_open(name):
-    #         subprocess.Popen(path)
-    #         time.sleep(5)  # Wait for the application to open
-    #     # else:
-    #     #     pyautogui.alert(f'{name} is already running.')
+    def text1_change(self):
+        global TemRes
+        TemRes = float(self.text_fields["TemRes"].text())
 
-    # def type_in_application(self,text):
-    #     """Types a string of text into the open application."""
-    #     pyautogui.typewrite(text, interval=0.1)   
-    def is_application_open(self, name):
+    def text2_change(self):
+        global SomeVar2
+        SomeVar2 = float(self.text_fields["N/A"].text())
+
+    def text3_change(self):
+        global AvPer
+        AvPer = float(self.text_fields["AvPer"].text())
+
+    def text4_change(self):
+        global Volt_List
+        Volt_List = self.text_fields["Volt_List"].text()
+
+    def text5_change(self):
+        global Offset
+        Offset = float(self.text_fields["Offset"].text())
+
+    def text6_change(self):
+        global Temp_List
+        Temp_List = self.text_fields["Temp_List"].text()
+
+    def text7_change(self):
+        global Fold
+        Fold = self.text_fields["Fold"].text()
+        
+    def text8_change(self):
+        global BaseName
+        BaseName =self.text_fields["BaseName"].text()
+
+    def text9_change(self):
+        global Temp_Wait
+        Temp_Wait = float(self.text_fields["Temp_Wait"].text())
+        
+    def text10_change(self):
+        global QQ
+        QQ = int(float(self.text_fields["QQ"].text()))
+
+    def text11_change(self):
+        global LastTemp
+        LastTemp = float(self.text_fields["LastTemp"].text())
+
+    def text12_change(self):
+        global Accuracy
+        Accuracy = round(float(self.text_fields["Accuracy"].text()), 2)
+        
+    def text13_change(self):
+        Freq = float(self.text_fields["Frequency"].text())
+        wrt_buf = f"APPL:SQU {Freq}"
+        self.gen_id.write(wrt_buf)
+
+    def text14_change(self):
+        global VScalMax
+        VScalMax = float(self.text_fields["VScalMax"].text())
+
+    def text16_change(self):
+        global WaitingVoltage
+        WaitingVoltage = round(float(self.text_fields["WaitingVoltage"].text()), 1)
+
+    def text17_change(self):
+        global AmpGain
+        AmpGain = round(float(self.text_fields["AmpGain"].text()))
+
+    def text18_change(self):
+        global WaitV
+        WaitV = float(self.text_fields["WaitV"].text()) * 1000
+
+    ### Window Controll
+    def is_application_open(self,name):
         """Check if there is any running process that contains the given name."""
         for proc in psutil.process_iter(['name']):
-            try:
-                if name.lower() in proc.info['name'].lower():
-                    return True
-            except (psutil.NoSuchProcess, psutil.AccessDenied, psutil.ZombieProcess):
-                continue
-        return False
-
-    def focus_application_window(self, window_title):
-        """Focus and maximize the window with the given title."""
-        windows = gw.getWindowsWithTitle(window_title)
-        if not windows:
-            print(f"No windows found with title containing: {window_title}")
-            return False
-        for win in windows:
-            try:
-                print(f"Attempting to activate window: {win.title}")
-                win.activate()
-                win.maximize()
+            if name.lower() in proc.info['name'].lower():
+                try:
+                    # Focus the window using the process ID and window title
+                    windows = gw.getWindowsWithTitle("Task Manager")
+                    if not windows:
+                        print(f"No windows found with title containing: {name}")
+                    for win in windows:
+                        print(f"Attempting to activate window: {win.title}")
+                        win.activate()
+                        win.maximize()  # Optional: Maximize the window
+                        return True
+                except Exception as e:
+                    print("Error bringing the window to front:", e)
                 return True
-            except Exception as e:
-                print("Error bringing the window to front:", e)
         return False
 
-    def open_application(self, path, Avantes_exe, window_title):
-        """Opens an application if it's not already running and focuses the window."""
-        if not self.is_application_open(Avantes_exe):
+    def open_application(self,path, name):
+        #Opens an application if it's not already running.
+        if not self.is_application_open(name):
             subprocess.Popen(path)
             time.sleep(5)  # Wait for the application to open
-        self.focus_application_window(window_title)
+        # else:
+        #     pyautogui.alert(f'{name} is already running.')
 
-    def type_in_application(self, text):
+    def type_in_application(self,text):
         """Types a string of text into the open application."""
-        pyautogui.typewrite(text, interval=0.1)     
+        pyautogui.typewrite(text, interval=0.1)    
     ### Oscilloscope Control ###
+    def Set_WaveForm(self, freq):
+        wrt_buf = f"FREQ {freq}"
+        self.gen_id.write(wrt_buf)
+
+    def Set_Amplitude(self, amplitude):
+        if amplitude != 0:
+            if self.DCmode:
+                wrt_buf = f"APPL:SQU {self.Freq}"
+                self.gen_id.write(wrt_buf)
+                wrt_buf = f"VOLT {amplitude}"
+                self.gen_id.write(wrt_buf)
+                self.DCmode = False
+            else:
+                wrt_buf = f"VOLT {amplitude}"
+                self.gen_id.write(wrt_buf)
+        else:
+            self.DCmode = True
+            wrt_buf = f"APPLy:DC DEF, DEF, {self.Offset}"
+            self.gen_id.write(wrt_buf)
+
+    def Set_Offset(self, offset):
+        wrt_buf = f"VOLT:OFFS {offset}"
+        self.gen_id.write(wrt_buf)
+
+    def Init_Gen(self):
+        self.Set_Offset("0")
+        
+        
+    ### ###
     
-    def Waiting(self, sec):
+    def Waiting(self, min):
+        sec = round(min * 60)
         for i in range(1, sec + 1):
             time.sleep(1)
             self.label.setText(f"{self.Mess} ( time left: {round(sec - i)} sec )")
             QApplication.processEvents()
 
-    # def Wait_Temp(self, temp_probe):
-    #     self.Mess = "Waiting for Accuracy"
-    #     i = 0
-    #     while abs(self.SetT - self.CurrentT) > self.Accuracy:
-    #         time.sleep(1)
-    #         self.label.setText(f"{self.Mess} {i} sec")
-    #         QApplication.processEvents()
-    #         i += 1
-    #         self.CurrentT = temp_probe.read_temp()
+    def Wait_Temp(self):
+        self.Mess = "Waiting for Accuracy"
+        print('\a')  # Beep
+        i = 0
+        while abs(self.SetT - self.CurrentT) > self.Accuracy:
+            time.sleep(1)
+            self.label.setText(f"{self.Mess} {i} sec")
+            QApplication.processEvents()
+            i += 1
+            self.CurrentT = self.read_temp()
 
     def Fill_Volt(self,tlist):
         TL = tlist.strip()
         print("Tl", TL)
         p1 = 1
-        self.Vmax = 0
+        Vmax = 0
         i1 = 0
         while p1 > 0:
             i1 += 1
@@ -490,137 +474,142 @@ class MainWindow(QMainWindow):
                     i1 -= 1
                 else:
                     Voltage.append(float(vl1))
-                    if Voltage[i1] > self.Vmax:
-                        self.Vmax = Voltage[i1]
+                    if Voltage[i1] > Vmax:
+                        Vmax = Voltage[i1]
             else:
                 Voltage[i1] = float(TL)
-                if Voltage[i1] > self.Vmax:
-                    self.Vmax = Voltage[i1]
+                if Voltage[i1] > Vmax:
+                    Vmax = Voltage[i1]
         self.Num_Volt = i1
         Voltage.append(99999)
 
     def Fill_Temp(self,tlist):
-        # TL = tlist.strip()
-        # p5 = 1
-        # i5 = 0
-        # while p5 > 0:
-        #     i5 += 110.0
-        
-        #     p5 = TL.find(',')
-        #     p6 = TL.find('/')
-        #     if p5 > 0 or p6 > 0:
-        #         if p5 != 0:
-        #             TL1 = TL[:p5]
-        #             TL = TL[p5 + 1:]
-        #         else:
-        #             TL1 = TL
-        Num_Temp = 0
-    
         TL = tlist.strip()
+        p5 = 1
         i5 = 0
-        
-        while TL:
+        while p5 > 0:
             i5 += 1
             p5 = TL.find(',')
             p6 = TL.find('/')
-            
             if p5 > 0 or p6 > 0:
-                if p5 != -1:
+                if p5 != 0:
                     TL1 = TL[:p5]
                     TL = TL[p5 + 1:]
                 else:
                     TL1 = TL
-                    TL = ""
-                
-                p6 = TL1.find('/')
-                if p6 != -1:
-                    tem1 = float(TL1[:p6])
-                    TL1 = TL1[p6 + 1:]
-                    p6 = TL1.find('/')
-                    tems = float(TL1[:p6])
-                    tem2 = float(TL1[p6 + 1:])
-                    if tem1 > tem2:
-                        tems = -tems
-                    vol = tem1
-                    while (vol <= tem2 and tems > 0) or (vol >= tem2 and tems < 0):
-                        Temperature[i5] = vol
-                        i5 += 1
-                        vol += tems
-                    i5 -= 1
-                else:
-                    Temperature[i5] = float(TL1)
-            else:
-                Temperature[i5] = float(TL)
-                TL = ""
-        
-        Num_Temp = i5
-        Temperature.append(999)
-                
     def Form_Load(self):
-        global TemRes,Volt_List,Accuracy,Offset,Temp_List,Temp_Wait,AmpGain,WaitV,Freq,Folder,BaseName
-        if self.text_fields["TempRes"].text() != "": 
-            TemRes = float(self.text_fields["TempRes"].text())
-        if self.text_fields["Volt_List"].text() != "": 
-            Volt_List = self.text_fields["Volt_List"].text()
-        if self.text_fields["Temp_List"].text() != "": 
-            Temp_List = self.text_fields["Temp_List"].text()
-        if self.text_fields["Accuracy"].text() != "": 
-            Accuracy = round(float(self.text_fields["Accuracy"].text()), 2)
-        if self.text_fields["Offset"].text() != "": 
-            Offset = float(self.text_fields["Offset"].text())
-        if self.text_fields["Temp_Wait"].text() != "": 
-            Temp_Wait = float(self.text_fields["Temp_Wait"].text())
-        if self.text_fields["AmpGain"].text() != "": 
-            AmpGain = round(float(self.text_fields["AmpGain"].text()))
-        if self.text_fields["WaitV"].text() != "": 
-            WaitV = float(self.text_fields["WaitV"].text())
-        if self.text_fields["Frequency"].text() != "": 
-            Freq = float(self.text_fields["Frequency"].text())
-        if self.text_fields["Folder"].text() != "": 
-            Folder = self.text_fields["Folder"].text()
-        if self.text_fields["BaseName"].text() != "": 
-            BaseName = self.text_fields["BaseName"].text() 
-
-
+        # self.TemRes = float(self.text1.text())
+        # self.AvPer = float(self.text3.text())
+        # self.Volt_List = self.text4.text()
+        # self.Temp_List = self.text6.text()
+        # self.Accuracy = round(float(self.text12.text()), 2)
+        # self.Offset = float(self.text5.text())
+        # self.Temp_Wait = float(self.text9.text())
+        # self.VScalMax = float(self.text14.text())
+        # self.AmpGain = round(float(self.text17.text()))
+        # self.WaitV = float(self.text18.text()) * 1000
+        # self.Expire = False
+        # self.AST = self.check2.isChecked()
+        # self.ASV = self.check4.isChecked()
+        x =1
 
     def form_unload(self):
         sys.exit()
-        
-    def Waiting(self,wait_time):
+    def log_terminal(self, message):
+        self.terminal_output.append(message)
+    def Beep():
+        print("\a")  # This should produce a beep sound in most terminals
+
+    def Waiting(wait_time):
         print(f"Waiting for {wait_time} seconds...")
-        self.Status = QLabel(f"Waiting for {wait_time} seconds...")
         time.sleep(wait_time)
+        
+    def Set_Amplitude(amplitude):
+        print(f"Setting amplitude to {amplitude} V")
 
-    def WaitTemp(self):
-        global Temp_Wait
+    def WaitTemp():
         print("Waiting for temperature to stabilize...")
-        self.Status.setText("Waiting for temperature to stabilize...")
-        time.sleep(Temp_Wait)
+        time.sleep(1)
+    def Crc(message):
+        CRC16 = 65535
+        for c in message:
+            CRC16 ^= ord(c)
+            for _ in range(8):
+                if CRC16 % 2:
+                    CRC16 = (CRC16 >> 1) ^ 40961
+                else:
+                    CRC16 >>= 1
+        
+        CRCH = CRC16 >> 8
+        CRCL = CRC16 & 255
+        message += chr(CRCL) + chr(CRCH) + "xyz"
+        return CRC16
+    
+    def Read_Temp(self):
+        ADDRESS = 1
+        CODE = 3
+        A1_H = 0
+        A1_L = 1  # 1- Display; 2-SetPoint
+        N_H = 0
+        N_L = 1
+        TemRes = 1  # Define the temperature resolution variable
+        
+        ser = serial.Serial('COM1', 9600, timeout=1)  # Adjust the port and baudrate as necessary
 
+        ser.reset_input_buffer()
+        time.sleep(0.1)
+        
+        message = chr(ADDRESS) + chr(CODE) + chr(A1_H) + chr(A1_L) + chr(N_H) + chr(N_L)
+        self.Crc(message)
+        
+        ser.write(message.encode('latin-1'))
+        time.sleep(0.1)
+        
+        mes = ser.read(7)  # Adjust the number of bytes to read if necessary
+        
+        if len(mes) < 7:
+            raise Exception("Incomplete message received")
+        
+        read_temp = (256 * ord(mes[3]) + ord(mes[4])) / TemRes
+        
+        ser.close()
+        return read_temp
+    def Init_COM(self,port):
+        try:
+            ser = serial.Serial(
+                port=port,
+                baudrate=9600,
+                parity=serial.PARITY_NONE,
+                stopbits=serial.STOPBITS_ONE,
+                bytesize=serial.EIGHTBITS,
+                timeout=1
+            )
+            print(f"Port {port} opened successfully.")
+            return ser
+        except Exception as e:
+            print(f"Error opening port {port}: {e}")
+            return None
 
-            
-    ### Run MAIN Program ###        
+    def close_com(ser):
+        if ser and ser.is_open:
+            ser.close()
+            print("Port closed successfully.")
+        else:
+            print("Port is not open.")
     def command1_click(self):
-        self.save_values()
-        self.Form_Load()
-        global TemRes,Volt_List,Accuracy,Offset,Temp_List,Temp_Wait,AmpGain,WaitV,Freq
         self.button1.setEnabled(False)
         self.button2.setEnabled(True)
-        self.Status.setText('Initiation')
+        self.Status = QLabel('Initiation', self)
+        
         # Establish Connection to AVANTES Software
-        if self.Fake_Signal == True:
-            print("connected to AVS_Spec")
-            self.Status.setText("Connected to AVS_Spec")
-        else:
-            print(AVS_Init(0))
-            print("Number of Devices connected ",AVS_UpdateUSBDevices())
-            print(AVS_GetList())
-            deviceId = AVS_GetList()[0]
-            AVS_Handle = AVS_Activate(deviceId)
-            print("AVS_Handle: ",AVS_Handle)
-            
+        print(AVS_Init(0))
+        print("Number of Devices connected ",AVS_UpdateUSBDevices())
+        print(AVS_GetList())
+        deviceId = AVS_GetList()[0]
+        AVS_Handle = AVS_Activate(deviceId)
+        print("AVS_Handle: ",AVS_Handle)
         # Open or focus the application
-        self.open_application(AVANTES_path, Avantes_exe,Avantes_name)
+        self.open_application(AVANTES_path, AVANTES_name)
         # type_in_application('Hello, this is a test!') ## Commented out
         # pyautogui.press('enter')
         # You can also combine key presses for shortcuts
@@ -637,30 +626,30 @@ class MainWindow(QMainWindow):
         self.Fill_Volt(Volt_List)
         self.Fill_Temp(Temp_List)
         Port = 1  # sign = 10
-        generator = Generator(self.Freq, self.Vmax, self.Fake_Signal)
-        temp_Probe = Temp_Probe(self.Fake_Signal)
-        
+        # self.Init_COM(Port)
+        # self.Init_Gen()
         self.Freq = float(self.text_fields["Frequency"].text())
-        generator.Set_Freq(self.Freq)
-        generator.Set_Amplitude(self.Vmax,self.Freq)
-         
+        wrt_buf = f"APPL:SQU {self.Freq}"
+        self.gen_id.write(wrt_buf)
+        self.Set_Amplitude(Vmax)
         DCmode = False
-        FolderName = Folder + BaseName
+        FoldName = Fold + BaseName
         it = 0
         TemRes = 100
         ### BEGIN Temperature Cicle ###
         while Temperature[it] != 999:
             SetT = Temperature[it]
-            T_Name = FolderName + "T" + str(int((Temperature[it] * TemRes) + 1 / TemRes)).strip()
+            T_Name = FoldName + "T" + str(int((Temperature[it] * TemRes) + 1 / TemRes)).strip()
             Out_Data = T_Name + ".dat"
-            temp_Probe.Set_Temp(SetT)
+            self.Beep()
+            self.Set_Temp(SetT)
             
             if it != 0:
                 self.Waiting(Temp_Wait)
-            self.Status.setText("Waiting for Temperature")
+            self.Status = QLabel("Waiting for Temperature", self)
             # self.AVS_Measure()
-            CurrentT = temp_Probe.Read_Temp()
-            if abs(SetT - CurrentT) > Accuracy and True: 
+            CurrentT = self.ARead_Temp
+            if abs(SetT - CurrentT) > Accuracy and True:  # Assuming Text12.Text is non-empty
                 self.WaitTemp()
             
             # Voltage cycle
@@ -670,31 +659,25 @@ class MainWindow(QMainWindow):
                     print("Exiting function early")
                     self.exit_flag = False
                     return
-                generator.Set_Amplitude(Voltage[iv] / AmpGain,self.Freq)
-                if self.Fake_Signal == False:
-                    
-                    time.sleep(1)  # Sleep for 1000 milliseconds
-                    time.sleep(WaitV)  # WaitV is already in seconds, no conversion needed
-                    self.Status.setText("V circle")
-                    SSComent = "T" + str(SetT)+"V"+str(Voltage[iv])
-                    
-                    pyautogui.hotkey('ALT+F', 'S',"E")
-                    time.sleep(1)
-                    self.type_in_application(SSComent)
-                    time.sleep(1)
-                    pyautogui.hotkey("enter")
-                    time.sleep(1)
+                self.Set_Amplitude(Voltage[iv] / AmpGain)
+                time.sleep(1)  # Sleep for 1000 milliseconds
+                time.sleep(WaitV)  # WaitV is already in seconds, no conversion needed
+                self.Status = QLabel("V circle", self)
+                SSComent = "T" + str(SetT)+"V"+str(Voltage(iv))
+                
+                pyautogui.hotkey('ctrl', 's')
+                time.sleep(2)
+                self.type_in_application(SSComent)
+                time.sleep(2)
+                pyautogui.hotkey("enter")
+                time.sleep(2)
                 
                 iv += 1
-            it+=1    
+                
         if LastTemp != 0:
             self.Set_Temp(LastTemp)    
         AVS_Done()
-        self.Status.setText("Program END")
-        print("Program Done")
-        self.Status.setText("Program END")
-        self.button1.setEnabled(True)
-        self.button2.setEnabled(False)
+        self.Status = QLabel("Program END", self)
         # sys.exit()
 
 
@@ -704,7 +687,7 @@ def main():
     window = MainWindow()
     sys.exit(app.exec_())
 
-if __name__ == '__main__':
-    main()
+# if __name__ == '__main__':
+#     main()
     
    
