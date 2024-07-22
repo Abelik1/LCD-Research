@@ -91,7 +91,7 @@ class Temp_Probe():
 class Mock_Temp_Probe():
     def __init__(self,ui): #Use ui if you have a UI interface
         self.ui = ui
-    def Wait_Temp(self,SetT,Accuracy):
+    def Wait_Temp(self,SetT,Accuracy,_is_running):
         self.Mess = "Waiting for Accuracy"
         i = 0
         self.CurrentT = self.Read_Temp()
@@ -99,8 +99,8 @@ class Mock_Temp_Probe():
             time.sleep(1)
             self.ui.Status.setText(f"{self.Mess} {i} sec")
             self.ui.Status.update()
-            self.ui.Temp_Label.setText(f"{self.CurrentT}")
-            self.ui.Temp_Label.update()
+            # self.ui.Temp_Label.setText(f"{self.CurrentT}")
+            # self.ui.Temp_Label.update()
             i += 1
             self.CurrentT = SetT
             

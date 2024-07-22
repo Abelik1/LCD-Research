@@ -73,10 +73,11 @@ class MainProgram(QThread):
             self.finished.emit()
 
     def mainprogram(self):
+        
         while self._is_running:
+            
             app_control = AppControl()
-            self.ui.save_values()
-            self.ui.Form_Load()
+            
             if self.Fake_Signal:
                 generator = Mock_Generator()
                 temp_probe = Mock_Temp_Probe(ui = self.ui)
@@ -100,28 +101,24 @@ class MainProgram(QThread):
 
             # Open or focus the application
             app_control.open_application(AVANTES_PATH, AVANTES_EXE,AVANTEST_NAME)
+            time.sleep(6)
             if not self._is_running:
                 self.ui.Status.setText("Stopping...")
                 self.ui.Status.update()
                 break
             if self.ui.Auto:
-                if app_control.is_application_open(AVANTEST_NAME):
-                    time.sleep(0.5)
-                    pyautogui.press("ENTER")
-                    time.sleep(0.5)
-                else:
-                    pyautogui.press("down")
-                    time.sleep(0.5)
-                    pyautogui.press("right")
-                    time.sleep(0.5)
-                    if not self._is_running:
-                        self.ui.Status.setText("Stopping...")
-                        self.ui.Status.update()
-                        break
-                    pyautogui.press("ENTER")
-                    time.sleep(0.5)
-                    pyautogui.press("ENTER")
-                    time.sleep(0.5)
+                pyautogui.press("down")
+                time.sleep(0.5)
+                pyautogui.press("right")
+                time.sleep(0.5)
+                if not self._is_running:
+                    self.ui.Status.setText("Stopping...")
+                    self.ui.Status.update()
+                    break
+                pyautogui.press("ENTER")
+                time.sleep(0.5)
+                pyautogui.press("ENTER")
+                time.sleep(0.5)
             if not self._is_running:
                 self.ui.Status.setText("Stopping...")
                 self.ui.Status.update()
@@ -156,65 +153,66 @@ class MainProgram(QThread):
                     break
                 self.ui.Status.setText("Waiting for Temperature")
                 self.ui.Status.update()
-                # self.ui.AVS_Measure()
+                
                 CurrentT = temp_probe.Read_Temp()
                 temp_probe.Wait_Temp(SetT,self.Accuracy,self._is_running)
                 if not self._is_running:
                     self.ui.Status.setText("Stopping...")
                     self.ui.Status.update()
                     break
-                self.ui.Temp_Label.setText(f"{"Current Temp:"}{CurrentT}")
-                self.ui.Temp_Label.update()
+                
                 # Voltage cycle
                 iv = 0
                 for volt in self.Voltage:
                     generator.Set_Amplitude(volt / self.AmpGain,self.Freq,DCmode)   
-                    if not self.Fake_Signal: 
-                        print("SAVING")
-                        if not self._is_running:
-                            self.ui.Status.setText("Stopping...")
-                            self.ui.Status.update()
-                            break
-                        app_control.open_application(AVANTES_PATH, AVANTES_EXE,AVANTEST_NAME)
-                        time.sleep(1)  # Sleep for 1000 milliseconds
-                        time.sleep(self.WaitV)  # WaitV is already in seconds, no conversion needed
-                        self.ui.Status.setText("V circle")
-                        self.ui.Temp_Label.setText(f"{"Current Temp:"}{CurrentT}")
-                        self.ui.Temp_Label.update()
+                    # if not self.Fake_Signal: 
+                    print("SAVING")
+                    if not self._is_running:
+                        self.ui.Status.setText("Stopping...")
                         self.ui.Status.update()
-                        if not self._is_running:
-                            self.ui.Status.setText("Stopping...")
-                            self.ui.Status.update()
-                            break
-                        SSComent = "T" + str(SetT)+"V"+str(volt)
-                        
-                        time.sleep(1)
-                        pyautogui.keyDown("alt")
-                        time.sleep(0.5)
-                        if not self._is_running:
-                            self.ui.Status.setText("Stopping...")
-                            self.ui.Status.update()
-                            break
-                        pyautogui.keyDown("f")
-                        time.sleep(0.5)
-                        pyautogui.keyUp("alt")
-                        pyautogui.keyUp("f")
-                        time.sleep(1)
-                        if not self._is_running:
-                            self.ui.Status.setText("Stopping...")
-                            self.ui.Status.update()
-                            break
-                        pyautogui.hotkey("S")
-                        time.sleep(2)
-                        app_control.type_in_application(self.BaseName)
-                        app_control.type_in_application("-")
-                        app_control.type_in_application(SSComent)
-                        time.sleep(1)
-                        if not self._is_running:
-                            self.ui.Status.setText("Stopping...")
-                            self.ui.Status.update()
-                            break
-                        pyautogui.hotkey("enter")
+                        break
+                    app_control.open_application(AVANTES_PATH, AVANTES_EXE,AVANTEST_NAME)
+                    time.sleep(1)  # Sleep for 1000 milliseconds
+                    time.sleep(self.WaitV)  # WaitV is already in seconds, no conversion needed
+                    self.ui.Status.setText("V circle")
+                    # self.ui.Temp_Label.setText(f"{"Current Temp:"}{CurrentT}")
+                    # self.ui.Temp_Label.update()
+                    self.ui.Status.update()
+                    if not self._is_running:
+                        self.ui.Status.setText("Stopping...")
+                        self.ui.Status.update()
+                        break
+                    
+                    SSComent = "T" + str(SetT)+"V"+str(volt)
+                    
+                    time.sleep(1)
+                    pyautogui.hotkey("enter")
+                    time.sleep(0.5)
+                    if not self._is_running:
+                        self.ui.Status.setText("Stopping...")
+                        self.ui.Status.update()
+                        break
+                    pyautogui.hotkey("enter")
+                    time.sleep(1)
+                    if not self._is_running:
+                        self.ui.Status.setText("Stopping...")
+                        self.ui.Status.update()
+                        break
+                    if self.Folder != "":
+                        app_control.type_in_application(self.Folder)
+                    app_control.type_in_application(self.BaseName)
+                    app_control.type_in_application("-")
+                    app_control.type_in_application(SSComent)
+                    time.sleep(1)
+                    if not self._is_running:
+                        self.ui.Status.setText("Stopping...")
+                        self.ui.Status.update()
+                        break
+                    
+                    pyautogui.hotkey("enter")
+                    time.sleep(1)
+                    if self.ui.old_name == self.BaseName:
+                        pyautogui.hotkey("tab")
                         time.sleep(1)
                         pyautogui.hotkey("enter")
                         time.sleep(1)
@@ -337,6 +335,7 @@ class MainWindow(QMainWindow):
         self.initUI()
         self.load_values()
         self.Form_Load()
+        self.old_name = self.BaseName
 
     def initUI(self):
         self.setGeometry(300, 300, 900, 400)
@@ -357,8 +356,9 @@ class MainWindow(QMainWindow):
 
         # Populate the upper right box with some elements
         Gen_Label = QLabel("Generator")
-        Gen_Label.setFixedSize(100,20)
-        self.lower_box.addWidget(Gen_Label)
+        Gen_Label.setFixedSize(60,20)
+        Gen_Label.setStyleSheet("border: 1px solid black;")
+        self.upper_right_box.addWidget(Gen_Label)
         self.add_text(self.upper_right_box, "Offset", "Offset")
          # add_text(location , text_field_name, Label Name)
         self.add_text(self.upper_right_box, "WaitV", "Voltage wait time")
@@ -366,8 +366,9 @@ class MainWindow(QMainWindow):
         # self.add_text(self.upper_left_box, "WaitingVoltage","")
         self.add_text(self.upper_right_box, "AmpGain","Amp Gain")
         Temp_Label = QLabel("Temperature Probe")
-        Temp_Label.setFixedSize(150,20)
-        self.lower_box.addWidget(Temp_Label)
+        Temp_Label.setFixedSize(100,20)
+        Temp_Label.setStyleSheet("border: 1px solid black;")
+        self.upper_right_box.addWidget(Temp_Label)
         self.add_text(self.upper_right_box, "Accuracy", "Temperature Accuracy")
         self.add_text(self.upper_right_box, "TempRes", "Temperature Resolution")
         
@@ -399,10 +400,10 @@ class MainWindow(QMainWindow):
         self.Status.setAlignment(Qt.AlignCenter)
         
         
-        self.Temp_Label = QLabel('Current Temp:', self)
-        self.lower_box.addWidget(self.Temp_Label)
-        self.Temp_Label.setStyleSheet("background-color: white;")
-        self.Temp_Label.setFixedSize(100, 50)  # Set the size of the label
+        # self.Temp_Label = QLabel('Current Temp:', self)
+        # self.lower_box.addWidget(self.Temp_Label)
+        # self.Temp_Label.setStyleSheet("background-color: white;")
+        # self.Temp_Label.setFixedSize(100, 50)  # Set the size of the label
     
 
         # Start button
@@ -460,6 +461,13 @@ class MainWindow(QMainWindow):
 
     def start_command(self):
         if self.main_program is None:
+            self.save_values()
+            self.Form_Load()
+            self.Status.setStyleSheet("background-color: grey; color: black;")
+            if not self.Fake_Signal:
+                if self.old_name == self.BaseName:
+                    QMessageBox.information(self,"Popup","You are using the same name as the previous experiment. Are you sure you want to override?")
+                    QMessageBox.information(self,"Popup","Make sure to highlight SAVE before starting?")
             self.main_program = MainProgram(self,self.Freq, self.Volt_List,self.Temp_List,
                                             self.Accuracy,self.WaitV,self.LastTemp,
                                             self.Fake_Signal,self.AmpGain,self.Folder,self.BaseName)
@@ -493,6 +501,7 @@ class MainWindow(QMainWindow):
         self.raise_()
         self.setFocus()
         self.Status.setText("Command finished")
+        self.Status.setStyleSheet("background-color: green; color: white;")
 
     def closeEvent(self, event):
         self.save_values()
