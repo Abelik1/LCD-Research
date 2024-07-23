@@ -21,9 +21,7 @@ class Temp_Probe():
                 break
             self.CurrentT = self.Read_Temp()
         time.sleep(1)
-            
-        
-            
+                  
     def Crc(self,message):
         CRC16 = 65535
         for c in message:
