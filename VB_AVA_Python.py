@@ -47,7 +47,7 @@ class MainProgram(QThread):
     finished = pyqtSignal()
     resourceManager = pyvisa.ResourceManager()
     
-    def __init__(self,ui,freq,Volt_List,Temp_List,Accuracy,WaitV,LastTemp,
+    def __init__(self,ui,freq,Volt_List,Temp_List,Accuracy,WaitV,LastTemp,WaitTemp,
                 Fake_Signal,AmpGain,Folder,BaseName, parent=None):
         super(MainProgram, self).__init__(parent)
         self.ui = ui
@@ -57,6 +57,7 @@ class MainProgram(QThread):
         self.Accuracy = Accuracy
         self.WaitV =WaitV
         self.LastTemp =LastTemp
+        self.WaitTemp = WaitTemp
         self.Fake_Signal=Fake_Signal
         self.AmpGain = AmpGain
         self.Folder = Folder
@@ -101,19 +102,7 @@ class MainProgram(QThread):
             # Open or focus the application
             app_control.open_application(AVANTES_PATH, AVANTES_EXE,AVANTEST_NAME)
             time.sleep(6)
-            if not self._is_running:
-                break
-            if self.ui.Auto:
-                pyautogui.press("down")
-                time.sleep(0.5)
-                pyautogui.press("right")
-                time.sleep(0.5)
-                if not self._is_running:
-                    break
-                pyautogui.press("ENTER")
-                time.sleep(0.5)
-                pyautogui.press("ENTER")
-                time.sleep(0.5)
+            
             if not self._is_running:
                 break
             DCmode = False
@@ -137,13 +126,12 @@ class MainProgram(QThread):
                 temp_probe.Set_Temp(SetT)
                 if not self._is_running:
                     break
-                temp_probe.Wait_Temp(SetT,self.Accuracy,self._is_running)
+                temp_probe.Wait_Temp(SetT,self.Accuracy,self.WaitTemp,self._is_running)
                 if not self._is_running:
                     break
                 self.ui.Status.setText("Waiting for Temperature")
                 self.ui.Status.update()
                 
-                CurrentT = temp_probe.Read_Temp()
                 temp_probe.Wait_Temp(SetT,self.Accuracy,self._is_running)
                 if not self._is_running:
                     break
@@ -169,6 +157,7 @@ class MainProgram(QThread):
                     time.sleep(1)
                     # pyautogui.hotkey("enter")
                     pyautogui.moveTo(650, 400)
+                    #pyautogui.moveTo(350, 350) #Pixel coords for Main Computer
                     pyautogui.click()
                     
                     time.sleep(0.5)
@@ -189,20 +178,11 @@ class MainProgram(QThread):
                     
                     pyautogui.hotkey("enter")
                     time.sleep(1)
-                    if self.ui.old_name == self.BaseName:
-                        pyautogui.hotkey("tab")
-                        time.sleep(1)
-                        pyautogui.hotkey("enter")
-                        time.sleep(1)
+
 
             if self.LastTemp != 0:
                 temp_probe.Set_Temp(self.LastTemp)
             # AVS_Done()
-            
-            if self.ui.Auto:
-                time.sleep(1)
-                pyautogui.press("ENTER")
-                time.sleep(1)
             self.ui.Status.setText("Program END")
             self.ui.Status.update()
             print("Program Done")
@@ -294,7 +274,7 @@ class MainWindow(QMainWindow):
             
         self.Fake_Signal = False
         self.DCmode = False
-        self.Auto = False 
+ 
         self.text_fields = {
             "TempRes": QLineEdit(self),
             "Volt_List": QLineEdit(self),
@@ -303,9 +283,9 @@ class MainWindow(QMainWindow):
             "Folder": QLineEdit(self),
             "BaseName": QLineEdit(self),
             "LastTemp": QLineEdit(self),
+            "WaitTemp" : QLineEdit(self),
             "Accuracy": QLineEdit(self),
             "Frequency": QLineEdit(self),
-            # "WaitingVoltage": QLineEdit(self),
             "AmpGain": QLineEdit(self),
             "WaitV": QLineEdit(self),
             "SetTemp": QLineEdit(self),
@@ -337,6 +317,7 @@ class MainWindow(QMainWindow):
         self.add_text(self.upper_left_box, "Volt_List"," Volt List")
         self.add_text(self.upper_left_box, "Temp_List", "Temperature list")
         self.add_text(self.upper_left_box, "LastTemp","Last Temperature")
+        
 
         ### Populate the upper right box with some elements ###
         Gen_Label = QLabel("Generator")
@@ -356,7 +337,7 @@ class MainWindow(QMainWindow):
         
         self.add_text(self.upper_right_box, "Accuracy", "Temperature Accuracy")
         self.add_text(self.upper_right_box, "TempRes", "Temperature Resolution")
-        
+        self.add_text(self.upper_right_box, "WaitTemp","Wait for Temp")
         for field in self.text_fields.values():
             field.setFixedSize(200, 25)
 
@@ -431,10 +412,6 @@ class MainWindow(QMainWindow):
         self.checkbox.stateChanged.connect(self.checkbox_state_FakeSignal)
         self.upper_left_box.addWidget(self.checkbox)
         
-        # # Fake Signal button
-        # self.checkbox2 = QCheckBox('AutoLaunch AvaSoft', self)
-        # self.checkbox2.stateChanged.connect(self.checkbox_state_Auto)
-        # self.upper_left_box.addWidget(self.checkbox2)
 
         # Create and set up the upper left widget
         self.upper_left_widget = QWidget()
@@ -473,12 +450,12 @@ class MainWindow(QMainWindow):
         try:
             serial.Serial('COM1', 9600, timeout=1) 
         except:
-            self.Current_Temp_Label.setText(f"Current Temperature: {temp}°C")        
+            self.Current_Temp_Label.setText(f"Example Temperature: {temp}°C")        
         else:
             if self.Fake_Signal == False:
                 Temp_Probe(self).Set_Temp(temp)
             elif self.Fake_Signal:
-                self.Current_Temp_Label.setText(f"Current Temperature: {temp}°C") 
+                self.Current_Temp_Label.setText(f"Example Temperature: {temp}°C") 
                 
     def update_temperature(self):
         # Here you would fetch the current temperature from your data source
@@ -501,10 +478,10 @@ class MainWindow(QMainWindow):
             self.Status.setStyleSheet("background-color: grey; color: black;")
             if not self.Fake_Signal:
                 if self.old_name == self.BaseName:
-                    QMessageBox.information(self,"Popup","You are using the same name as the previous experiment. Are you sure you want to override?")
-                    QMessageBox.information(self,"Popup","Make sure to maximise AvaSoft8 before starting")
+                    QMessageBox.information(self,"Popup","You are using the same name as the previous experiment. Make sure to clear the folder?")
+                QMessageBox.information(self,"Popup","Make sure to maximise AvaSoft8 before starting")
             self.main_program = MainProgram(self,self.Freq, self.Volt_List,self.Temp_List,
-                                            self.Accuracy,self.WaitV,self.LastTemp,
+                                            self.Accuracy,self.WaitV,self.LastTemp,self.WaitTemp,
                                             self.Fake_Signal,self.AmpGain,self.Folder,self.BaseName)
             self.main_program.finished.connect(self.command_finished)
             self.main_program.start()
@@ -549,14 +526,7 @@ class MainWindow(QMainWindow):
         else:  # Unchecked
             print('Checkbox unchecked')
             self.Fake_Signal = False 
-            
-    def checkbox_state_Auto(self, state):
-        if state == 2:  # Checked
-            print('Checkbox checked')
-            self.Auto = True      
-        else:  # Unchecked
-            print('Checkbox unchecked')
-            self.Auto = False 
+        
 
     def add_group_box_with_title(self, widget, layout, title, row, col, rowspan=1, colspan=1):
         group_box =QGroupBox(title)
@@ -600,6 +570,8 @@ class MainWindow(QMainWindow):
             self.Offset = float(self.text_fields["Offset"].text())
         if self.text_fields["LastTemp"].text() != "": 
             self.LastTemp = float(self.text_fields["LastTemp"].text())
+        if self.text_fields["WaitTemp"].text() != "": 
+            self.WaitTemp = float(self.text_fields["WaitTemp"].text())
         if self.text_fields["AmpGain"].text() != "": 
             self.AmpGain = round(float(self.text_fields["AmpGain"].text()))
         if self.text_fields["WaitV"].text() != "": 

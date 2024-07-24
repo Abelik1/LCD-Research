@@ -7,7 +7,7 @@ class Temp_Probe():
         
         self.ser = serial.Serial('COM1', 9600, timeout=1) # Adjust the port and baudrate as necessary
         
-    def Wait_Temp(self,SetT,Accuracy,_is_running):
+    def Wait_Temp(self,SetT,Accuracy,WaitTemp,_is_running):
         
         self.Mess = "Waiting for Accuracy"
         i = 0
@@ -20,10 +20,8 @@ class Temp_Probe():
             if not _is_running:
                 break
             self.CurrentT = self.Read_Temp()
-        time.sleep(1)
-            
-        
-            
+        time.sleep(WaitTemp)
+                  
     def Crc(self,message):
         CRC16 = 65535
         for c in message:
@@ -91,7 +89,7 @@ class Temp_Probe():
 class Mock_Temp_Probe():
     def __init__(self,ui): #Use ui if you have a UI interface
         self.ui = ui
-    def Wait_Temp(self,SetT,Accuracy):
+    def Wait_Temp(self,SetT,Accuracy,_is_running):
         self.Mess = "Waiting for Accuracy"
         i = 0
         self.CurrentT = self.Read_Temp()
@@ -99,8 +97,8 @@ class Mock_Temp_Probe():
             time.sleep(1)
             self.ui.Status.setText(f"{self.Mess} {i} sec")
             self.ui.Status.update()
-            self.ui.Temp_Label.setText(f"{self.CurrentT}")
-            self.ui.Temp_Label.update()
+            # self.ui.Temp_Label.setText(f"{self.CurrentT}")
+            # self.ui.Temp_Label.update()
             i += 1
             self.CurrentT = SetT
             
