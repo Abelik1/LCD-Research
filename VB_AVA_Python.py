@@ -486,7 +486,7 @@ class MainWindow(QMainWindow):
             serial.Serial('COM1', 9600, timeout=1)
         except:
             current_temperature = 30
-            self.Current_Temp_Label.setText(f"Current Temperature: {current_temperature}°C")
+            self.Current_Temp_Label.setText(f"Example Temperature: {current_temperature}°C")
         else:
             if self.Fake_Signal == False:
                 current_temperature = Temp_Probe(self).Read_Temp()
@@ -502,7 +502,7 @@ class MainWindow(QMainWindow):
             if not self.Fake_Signal:
                 if self.old_name == self.BaseName:
                     QMessageBox.information(self,"Popup","You are using the same name as the previous experiment. Are you sure you want to override?")
-                    QMessageBox.information(self,"Popup","Make sure to highlight SAVE before starting?")
+                    QMessageBox.information(self,"Popup","Make sure to maximise AvaSoft8 before starting")
             self.main_program = MainProgram(self,self.Freq, self.Volt_List,self.Temp_List,
                                             self.Accuracy,self.WaitV,self.LastTemp,
                                             self.Fake_Signal,self.AmpGain,self.Folder,self.BaseName)
