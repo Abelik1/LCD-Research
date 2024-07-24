@@ -89,6 +89,7 @@ class MainProgram(QThread):
             self.ui.start_btn.setEnabled(False)
             self.ui.stop_btn.setEnabled(True)
             if not self._is_running:
+                print("running 1")
                 break
             self.ui.Status.setText('Initiation')
             self.ui.Status.update()
@@ -104,6 +105,7 @@ class MainProgram(QThread):
             time.sleep(6)
             
             if not self._is_running:
+                print("running 2")
                 break
             DCmode = False
             self.Fill_Volt(self.Volt_List)
@@ -125,15 +127,18 @@ class MainProgram(QThread):
                 Out_Data = T_Name + ".dat"
                 temp_probe.Set_Temp(SetT)
                 if not self._is_running:
+                    print("running 3")
                     break
                 temp_probe.Wait_Temp(SetT,self.Accuracy,self.WaitTemp,self._is_running)
                 if not self._is_running:
+                    print("running 4")
                     break
                 self.ui.Status.setText("Waiting for Temperature")
                 self.ui.Status.update()
                 
                 temp_probe.Wait_Temp(SetT,self.Accuracy,self._is_running)
                 if not self._is_running:
+                    print("running 5")
                     break
                 
                 # Voltage cycle
@@ -142,6 +147,7 @@ class MainProgram(QThread):
                     generator.Set_Amplitude(volt / self.AmpGain,self.Freq,DCmode)   
                 
                     if not self._is_running:
+                        print("running 6")
                         break
                     app_control.open_application(AVANTES_PATH, AVANTES_EXE,AVANTEST_NAME)
 
@@ -150,6 +156,7 @@ class MainProgram(QThread):
                     self.ui.Status.update()
                     
                     if not self._is_running:
+                        print("running 7")
                         break
                     
                     SSComent = "T" + str(SetT)+"V"+str(volt)
@@ -162,10 +169,12 @@ class MainProgram(QThread):
                     
                     time.sleep(0.5)
                     if not self._is_running:
+                        print("running 8")
                         break
                     pyautogui.hotkey("enter")
                     time.sleep(1)
                     if not self._is_running:
+                        print("running 9")
                         break
                     if self.Folder != "":
                         app_control.type_in_application(self.Folder)
@@ -174,6 +183,7 @@ class MainProgram(QThread):
                     app_control.type_in_application(SSComent)
                     time.sleep(1)
                     if not self._is_running:
+                        print("running 10")
                         break
                     
                     pyautogui.hotkey("enter")
@@ -453,7 +463,7 @@ class MainWindow(QMainWindow):
             self.Current_Temp_Label.setText(f"Example Temperature: {temp}°C")        
         else:
             if self.Fake_Signal == False:
-                Temp_Probe(self).Set_Temp(temp)
+                Temp_Probe(ui=self).Set_Temp(temp)
             elif self.Fake_Signal:
                 self.Current_Temp_Label.setText(f"Example Temperature: {temp}°C") 
                 
