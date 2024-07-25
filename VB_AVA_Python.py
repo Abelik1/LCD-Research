@@ -178,6 +178,7 @@ class MainProgram(QThread):
                         break
                     if self.Folder != "":
                         app_control.type_in_application(self.Folder)
+                        app_control.type_in_application("/")
                     app_control.type_in_application(self.BaseName)
                     app_control.type_in_application("-")
                     app_control.type_in_application(SSComent)
@@ -352,12 +353,19 @@ class MainWindow(QMainWindow):
             field.setFixedSize(200, 25)
 
         # Populate the lower left box with some elements
+        folder_layout = QHBoxLayout()
+        
         Folder_Label = QLabel("Folder")
         Folder_Label.setFixedSize(250,25)
         Folder_Field = self.text_fields["Folder"]
         Folder_Field.setFixedSize(500,25)
+        Folder_Browse_Button = QPushButton("Browse")
+        Folder_Browse_Button.clicked.connect(lambda: self.browse_folder(Folder_Field))
+        # folder_layout.addWidget(Folder_Label)
         self.lower_left_box.addWidget(Folder_Label)
-        self.lower_left_box.addWidget(Folder_Field)
+        folder_layout.addWidget(Folder_Field)
+        folder_layout.addWidget(Folder_Browse_Button)
+        self.lower_left_box.addLayout(folder_layout)
 
         BaseName_Label = QLabel("BaseName")
         BaseName_Label.setFixedSize(200,25)
@@ -454,7 +462,10 @@ class MainWindow(QMainWindow):
         self.setCentralWidget(container)
 
         self.show()
-        
+    def browse_folder(self, field):
+        folder = QFileDialog.getExistingDirectory(self, "Select Folder")
+        if folder:
+            field.setText(folder)   
     def set_temp_command(self):
         temp = self.text_fields["SetTemp"].text()
         try:
