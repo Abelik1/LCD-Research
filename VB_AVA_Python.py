@@ -10,7 +10,6 @@ import time
 import pyautogui
 # import pygetwindow as gw
 import pyvisa
-
 # import serial
 
 from PyQt5.QtCore import QThread
