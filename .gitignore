@@ -1,0 +1,4 @@
+output/*
+build/*
+dist/*
+output/VB_AVA_Python/VB_AVA_Python.exe
