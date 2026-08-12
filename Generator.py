@@ -65,5 +65,5 @@ class Mock_Generator():
         return
     def Set_Freq(self,freq):
         return
-    def Set_Amplitude(self,amplitude, freq):
+    def Set_Amplitude(self,amplitude, freq,Dcmode):
         return

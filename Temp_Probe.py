@@ -4,8 +4,11 @@ import serial
 class Temp_Probe(): 
     def __init__(self,ui):
         self.ui = ui
+        
         self.ser = serial.Serial('COM1', 9600, timeout=1) # Adjust the port and baudrate as necessary
-    def Wait_Temp(self,SetT,Accuracy):
+        
+    def Wait_Temp(self,SetT,Accuracy,_is_running):
+        
         self.Mess = "Waiting for Accuracy"
         i = 0
         self.CurrentT = self.Read_Temp()
@@ -14,7 +17,12 @@ class Temp_Probe():
             self.ui.Status.setText(f"{self.Mess} {i} sec") # Used if you have a PyQt application running
             self.ui.Status.update()
             i += 1
+            if not _is_running:
+                break
             self.CurrentT = self.Read_Temp()
+        time.sleep(1)
+            
+        
             
     def Crc(self,message):
         CRC16 = 65535
@@ -29,20 +37,20 @@ class Temp_Probe():
         CRCH = CRC16 >> 8
         CRCL = CRC16 & 255
         message += chr(CRCL) + chr(CRCH) + "xyz"
-        print(CRC16,"CRC16")
+        # print(CRC16,"CRC16")
         # return CRC16
         return message
     
     def Read_Temp(self):
+
         ADDRESS = 1
         CODE = 3
         A1_H = 0
         A1_L = 1  # 1- Display; 2-SetPoint
         N_H = 0
         N_L = 1
-        TemRes = 100  # Define the temperature resolution variable
+        TemRes = 100  # Define the temperature resolution variable 
         
-        self.ser = serial.Serial('COM1', 9600, timeout=1)  
         self.ser.reset_input_buffer()
         time.sleep(0.1)
         
@@ -57,10 +65,11 @@ class Temp_Probe():
         
         read_temp = (256 * (mes[3]) + (mes[4])) / TemRes
         
-        self.ser.close()
+        
         return read_temp
          
     def Set_Temp(self,temp):
+
         TemRes=100
         temp= int(TemRes*temp)
         ADDRESS =1
@@ -72,17 +81,17 @@ class Temp_Probe():
         
         message = chr(ADDRESS) + chr(CODE) + chr(A_MSB) + chr(A_LSB) + chr(V_MSB) + chr(V_LSB)
         message = self.Crc(message)
-
+        
         self.ser.write(message.encode("latin-1"))
         time.sleep(0.2)
-        self.ser.close()
+        
         return 1
        
               
 class Mock_Temp_Probe():
-    def __init__(self,ui):
+    def __init__(self,ui): #Use ui if you have a UI interface
         self.ui = ui
-    def Wait_Temp(self,SetT,Accuracy):
+    def Wait_Temp(self,SetT,Accuracy,_is_running):
         self.Mess = "Waiting for Accuracy"
         i = 0
         self.CurrentT = self.Read_Temp()
@@ -90,6 +99,8 @@ class Mock_Temp_Probe():
             time.sleep(1)
             self.ui.Status.setText(f"{self.Mess} {i} sec")
             self.ui.Status.update()
+            # self.ui.Temp_Label.setText(f"{self.CurrentT}")
+            # self.ui.Temp_Label.update()
             i += 1
             self.CurrentT = SetT
             

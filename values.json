@@ -1,1 +1,1 @@
-{"TempRes": "100", "Volt_List": "4", "Offset": "10", "Temp_List": "2", "Folder": "C:\\Users\\Abeli\\Documents\\GitHub\\LCD-Research", "BaseName": "temp", "Temp_Wait": "1", "LastTemp": "0", "Accuracy": "0.1", "Frequency": "11", "AmpGain": "1", "WaitV": "4"}
+{"TempRes": "100", "Volt_List": "1", "Offset": "0", "Temp_List": "35", "Folder": "C:\\Users\\", "BaseName": "try3", "LastTemp": "35", "Accuracy": "0.1", "Frequency": "11", "AmpGain": "1", "WaitV": "4"}

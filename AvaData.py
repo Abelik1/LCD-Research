@@ -1,5 +1,5 @@
 import time
-from avaspec import *
+# from avaspec import *
 import psutil
 import subprocess
 import pyautogui
