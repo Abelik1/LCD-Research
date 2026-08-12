@@ -1,0 +1,5 @@
+_internal/
+output/
+__pycache__/
+*.pyc
+*.exe
