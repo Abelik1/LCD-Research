@@ -20,7 +20,7 @@ from PyQt5.QtWidgets import *
 
 from AvaData import AppControl, DirectControl
 from avaspec import *
-from generator import ( Generator, Mock_Generator )
+from Generator import ( Generator, Mock_Generator )
 from Temp_Probe import Temp_Probe
 
 AVANTES_PATH = "C:\\Program Files (x86)\\AvaSoft8\\avasoft8.exe"
